@@ -1,0 +1,64 @@
+<Window x:Class="VoceLocale.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="VoceLocale" Width="760" Height="840" MinWidth="650" MinHeight="600" ShowInTaskbar="False" WindowStartupLocation="CenterScreen" Background="#101820" Foreground="#E8EEF6" FontFamily="Segoe UI">
+  <ScrollViewer VerticalScrollBarVisibility="Auto">
+    <StackPanel Margin="32">
+      <DockPanel Margin="0,0,0,24">
+        <Border DockPanel.Dock="Right" Background="#1A3930" CornerRadius="12" Padding="12,6" VerticalAlignment="Top"><TextBlock Text="●  SOLO SUL TUO PC" Foreground="#9CDEBE" FontSize="11" FontWeight="SemiBold" /></Border>
+        <StackPanel><TextBlock Text="VoceLocale" FontSize="30" FontWeight="SemiBold" /><TextBlock Text="Dì Eugenio. Il testo prende forma." Foreground="#A8B7C5" FontSize="15" Margin="0,6,0,0" /></StackPanel>
+      </DockPanel>
+      <Border Background="#1C2A34" CornerRadius="16" Padding="22" Margin="0,0,0,20">
+        <StackPanel>
+          <TextBlock x:Name="StatusLabel" Text="Preparazione…" FontSize="20" FontWeight="SemiBold" />
+          <TextBlock x:Name="StatusDetail" Text="Verifica dei modelli locali." Foreground="#BAC7D3" Margin="0,8,0,14" />
+          <TextBlock x:Name="ShortcutHint" Text="Eugenio · avvia     clic sul badge o scorciatoia · termina     Esc · annulla" Foreground="#9CDEBE" FontWeight="SemiBold" />
+          <TextBlock x:Name="TimingLabel" Foreground="#A8B7C5" FontSize="12" Margin="0,10,0,0" />
+        </StackPanel>
+      </Border>
+      <StackPanel x:Name="ModelPanel">
+        <TextBlock Text="01 / MODELLI LOCALI" Foreground="#A8B7C5" FontSize="11" FontWeight="Bold" Margin="0,0,0,8" />
+        <TextBlock x:Name="ModelsLabel" Text="Whisper locale + MiniCPM tramite Ollama" />
+        <TextBlock Text="Whisper small resta sul PC. La correzione usa il MiniCPM già installato in Ollama, tramite 127.0.0.1:11434; nessun testo esce dal PC." FontSize="12" Foreground="#A8B7C5" Margin="0,5,0,12" />
+        <WrapPanel Margin="0,0,0,10">
+          <Button x:Name="DownloadButton" Content="Scarica Whisper small" Click="DownloadModels" />
+          <Button x:Name="ImportButton" Content="Importa Whisper da disco" Click="ImportModels" />
+          <Button x:Name="LoadButton" Content="Verifica modelli" Click="LoadModels" />
+          <Button x:Name="CancelDownloadButton" Content="Annulla" Visibility="Collapsed" Click="CancelDownload" />
+        </WrapPanel>
+        <ProgressBar x:Name="ModelProgress" Height="4" Minimum="0" Maximum="100" Visibility="Collapsed" />
+        <TextBlock x:Name="ProgressLabel" FontSize="12" Foreground="#A8B7C5" Margin="0,6,0,0" />
+      </StackPanel>
+      <Separator Margin="0,22" Background="#30404D" />
+      <StackPanel x:Name="SettingsPanel">
+        <TextBlock Text="02 / LA TUA DETTATURA" Foreground="#A8B7C5" FontSize="11" FontWeight="Bold" Margin="0,0,0,10" />
+        <Grid>
+          <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="20" /><ColumnDefinition /></Grid.ColumnDefinitions>
+          <StackPanel><TextBlock Text="Microfono" /><ComboBox x:Name="MicrophoneBox" /><Button Content="Aggiorna microfoni" Click="RefreshMicrophones" HorizontalAlignment="Left" /></StackPanel>
+          <StackPanel Grid.Column="2"><TextBlock Text="Lingua" /><ComboBox x:Name="LanguageBox"><ComboBoxItem Content="Automatico · italiano / inglese" Tag="auto" /><ComboBoxItem Content="Italiano" Tag="it" /><ComboBoxItem Content="English" Tag="en" /></ComboBox><TextBlock Text="Mantiene la lingua parlata. Non traduce." FontSize="12" Foreground="#A8B7C5" /></StackPanel>
+        </Grid>
+        <TextBlock Text="Stile di scrittura" Margin="0,14,0,5" />
+        <ComboBox x:Name="ModeBox">
+          <ComboBoxItem Content="Generale · fedele alla voce" Tag="general" />
+          <ComboBoxItem Content="Messaggio · tono naturale" Tag="message" />
+          <ComboBoxItem Content="Email · senza aggiunte" Tag="email" />
+          <ComboBoxItem Content="Codice · preserva i termini tecnici" Tag="code" />
+        </ComboBox>
+        <TextBlock Text="Modello di correzione · Ollama locale" Margin="0,12,0,5" />
+        <DockPanel><Button x:Name="RefreshRewriteModelsButton" DockPanel.Dock="Right" Content="Aggiorna elenco" Margin="8,0,0,0" /><ComboBox x:Name="RewriteModelBox" IsEditable="False" ToolTip="Sono mostrati i modelli già installati e disponibili in Ollama." /></DockPanel>
+        <TextBlock Text="Predefinito: minicpm-assistente-it:latest. Ollama deve essere avviato sul PC." FontSize="12" Foreground="#A8B7C5" Margin="0,4,0,0" />
+        <TextBlock Text="Dizionario personale (fino a 40 nomi o termini, uno per riga)" Margin="0,12,0,5" />
+        <TextBox x:Name="VocabularyBox" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="54" MaxHeight="110" VerticalScrollBarVisibility="Auto" ToolTip="Suggerimenti di ortografia locali; non sovrascrivono parole chiaramente diverse." />
+        <TextBlock Text="Scorciatoia di emergenza (alternativa a Eugenio)" Margin="0,16,0,5" />
+        <DockPanel><Button DockPanel.Dock="Right" Content="Salva impostazioni" Click="SaveSettings" Margin="12,0,0,0" /><TextBox x:Name="ShortcutBox" Text="Ctrl+Alt+Space" /></DockPanel>
+      </StackPanel>
+      <Border x:Name="RecoveryPanel" Visibility="Collapsed" Background="#24332F" CornerRadius="12" Padding="18" Margin="0,22,0,0">
+        <StackPanel>
+          <TextBlock Text="Testo trattenuto" FontSize="17" FontWeight="SemiBold" />
+          <TextBlock x:Name="RecoveryHint" Margin="0,6,0,10" />
+          <TextBox x:Name="RecoveryText" IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="70" MaxHeight="180" VerticalScrollBarVisibility="Auto" />
+          <WrapPanel Margin="0,12,0,0"><Button x:Name="ArmButton" Content="Abilita inserimento manuale" Click="ArmRecovery" /><Button Content="Copia esplicitamente" Click="CopyRecovery" /><Button Content="Scarta" Click="DiscardRecovery" /></WrapPanel>
+        </StackPanel>
+      </Border>
+      <TextBlock Text="Per riconoscere Eugenio, il microfono resta in ascolto e brevi segmenti vocali sono elaborati localmente in memoria. Whisper e MiniCPM/Ollama lavorano sul PC. Audio e dettati non vengono salvati dall’app né inviati online. Nessuna cronologia o telemetria." FontSize="12" Foreground="#A8B7C5" Margin="0,22,0,14" />
+      <WrapPanel><Button Content="Nascondi nell’area di notifica" Click="HideWindow" /><Button Content="Esci" Click="ExitApp" Background="#33424E" Foreground="White" /></WrapPanel>
+    </StackPanel>
+  </ScrollViewer>
+</Window>

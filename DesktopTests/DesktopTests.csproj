@@ -1,0 +1,4 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><UseWPF>true</UseWPF></PropertyGroup>
+  <ItemGroup><ProjectReference Include="../Core/Core.csproj" /><Compile Include="../App/DesktopInput.cs" Link="DesktopInput.cs" /></ItemGroup>
+</Project>
