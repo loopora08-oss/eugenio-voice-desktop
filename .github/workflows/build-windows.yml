@@ -1,0 +1,28 @@
+name: Build Eugenio for Windows
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Publish desktop app
+        shell: pwsh
+        run: dotnet publish App/VoceLocale.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -p:RestoreLockedMode=true -o publish/App
+      - name: Run logic tests
+        shell: pwsh
+        run: dotnet run --project Tests/Tests.csproj -c Release -p:RestoreLockedMode=true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Eugenio-App-win-x64
+          path: publish/App/
+          if-no-files-found: error
+          retention-days: 1
