@@ -1,5 +1,10 @@
 # VoceLocale — verifica della consegna
 
+## Mascotte Eugenio — 24 settembre 2026
+
+- Creata una sprite sheet pixel art originale con quattro pose e sfondo trasparente, incorporata come risorsa WPF. Il badge ora seleziona la posa raccolta in standby, mostra il risveglio all’avvio di registrazione/elaborazione e anima due pose durante la sessione.
+- Non compilato né provato in esecuzione in questo ambiente: è presente il runtime .NET 3.1 ma manca un SDK .NET; il tentativo di scaricare l’SDK 10 è fallito per errore TLS Schannel. I test riportati nelle sezioni precedenti appartengono alle revisioni già compilate.
+
 ## Integrazione MiniCPM via Ollama — 23 settembre 2026
 
 - L’app ora cerca i tag Ollama via `http://127.0.0.1:11434`, seleziona per impostazione predefinita `minicpm-assistente-it:latest` e usa `/api/chat` con `think:false`. Trascrizioni e prompt vanno solo al servizio Ollama sullo stesso PC. La correzione MiniCPM non richiede più il GGUF duplicato.

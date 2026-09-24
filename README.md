@@ -2,11 +2,15 @@
 
 App personale Windows x64 per dettare in italiano e inglese, correggere il parlato e inserire il risultato nel campo attivo. Whisper trascrive localmente; la correzione usa il MiniCPM installato in Ollama attraverso `127.0.0.1`. Audio e testo non vengono inviati a servizi cloud. Nessun account o Python richiesto.
 
-**Stato della consegna:** badge mobile con posizione persistente, wake word «Eugenio», inserimento dei blocchi dopo le pause e stili/dizionario locali. La build sorgente compila; questa revisione non è ancora stata provata con microfono reale o chat. I modelli si scaricano o si importano dal pannello. Nessuna protezione di Windows è stata disattivata.
+**Stato della consegna:** badge mobile con posizione persistente, mascotte pixel art animata, wake word «Eugenio», inserimento dei blocchi dopo le pause e stili/dizionario locali. La build sorgente compila; questa revisione della mascotte deve ancora essere compilata e provata su Windows, senza microfono reale o chat. I modelli si scaricano o si importano dal pannello. Nessuna protezione di Windows è stata disattivata.
 
 ## Segnali visivi
 
 Il badge rettangolare è trascinabile. Verde con alone pulsante significa microfono attivo e in attesa della parola di attivazione; le barrette turchesi si muovono quando il rilevatore sente la voce. «Ti sento» conferma il rilevamento, non il riconoscimento della parola Eugenio. Rosso con onde animate indica la dettatura in corso; ambra indica trascrizione o correzione; grigio indica che il microfono non è in ascolto o i motori vocali non sono pronti. Per dettare serve il modello Whisper small locale; per riscrivere serve Ollama avviato con il MiniCPM già installato.
+
+## Mascotte Eugenio
+
+La sprite sheet `App/assets/EugenioMascot.png` contiene quattro pose originali pixel art: riposo nella lampada, risveglio, ascolto e ascolto alternativo. Nel badge WPF il genio resta nella lampada durante lo standby; quando inizia una registrazione emerge, poi alterna le pose mentre la sessione è attiva. Un lieve movimento verticale continua anche in standby e in stato di errore. La mascotte non usa rete e non legge il contenuto delle finestre.
 
 ## Distribuzione aziendale (Windows/Intune)
 

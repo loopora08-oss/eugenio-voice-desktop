@@ -11,5 +11,8 @@
     <ProjectReference Include="../Core/Core.csproj" />
     <PackageReference Include="NAudio" Version="2.2.1" />
   </ItemGroup>
+  <ItemGroup>
+    <Resource Include="assets/EugenioMascot.png" />
+  </ItemGroup>
   <ItemGroup><Using Remove="System.Windows.Forms" /><Using Remove="System.Drawing" /></ItemGroup>
 </Project>
