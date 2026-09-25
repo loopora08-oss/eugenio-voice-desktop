@@ -32,7 +32,7 @@ public partial class MainWindow : Window
     private Task? _segmentWorker;
     private int _segmentsEmitted, _insertedBlocks;
     private string _segmentFailureText = "";
-    private bool _ready, _busy, _recording, _closing, _recoveryArmed, _manualOnly, _hotkeyAvailable, _wakeListening;
+    private bool _ready, _busy, _recording, _closing, _recoveryArmed, _manualOnly, _hotkeyAvailable, _wakeListening, _initialLoadStarted;
     private string _shortcutNotice = "";
 
     public MainWindow()
@@ -64,7 +64,14 @@ public partial class MainWindow : Window
             if (_recording && _recordTime.Elapsed >= TimeSpan.FromSeconds(120)) _ = StopRecordingAsync();
         };
         SourceInitialized += (_, _) => InitializeDesktop();
-        Loaded += async (_, _) => { Hide(); _badge.Show(); await VerifyModelsAsync(); };
+        Loaded += async (_, _) =>
+        {
+            if (_initialLoadStarted) return;
+            _initialLoadStarted = true;
+            Hide();
+            _badge.Show();
+            await VerifyModelsAsync();
+        };
         Closing += OnClosing;
     }
     private void InitializeDesktop()
@@ -113,7 +120,7 @@ public partial class MainWindow : Window
         else if (_wakeListening) _badge.SetStatus("In ascolto · dì Eugenio");
         else _badge.SetStatus(title, state);
     }
-    private void ShowSettings() { Show(); WindowState = WindowState.Normal; Activate(); }
+    internal void ShowSettings() { Show(); WindowState = WindowState.Normal; Activate(); }
     private void StartWakeListener()
     {
         if (!_ready || _closing || _recording || _busy || _setup != null || _wakeListening) return;
