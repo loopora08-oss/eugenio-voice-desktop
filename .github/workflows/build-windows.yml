@@ -14,15 +14,18 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
-      - name: Publish desktop app
+      - name: Publish complete desktop package and run logic tests
         shell: pwsh
-        run: dotnet publish App/VoceLocale.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -p:RestoreLockedMode=true -o publish/App
-      - name: Run logic tests
+        run: ./build.ps1 -Destination (Join-Path $PWD 'publish/App')
+      - name: Check required executable files
         shell: pwsh
-        run: dotnet run --project Tests/Tests.csproj -c Release -p:RestoreLockedMode=true
+        run: |
+          foreach ($file in @('publish/App/VoceLocale.exe', 'publish/App/engines/WhisperWorker/WhisperWorker.exe', 'publish/App/engines/RewriteWorker/RewriteWorker.exe', 'publish/App/LEGGIMI.md')) {
+            if (-not (Test-Path -LiteralPath $file)) { throw "Missing package file: $file" }
+          }
       - uses: actions/upload-artifact@v4
         with:
           name: Eugenio-App-win-x64
           path: publish/App/
           if-no-files-found: error
-          retention-days: 1
+          retention-days: 30
