@@ -109,14 +109,15 @@ public partial class MainWindow : Window
         _tray.ContextMenuStrip.Items.Add("Annulla dettatura", null, (_, _) => CancelSession());
         _tray.ContextMenuStrip.Items.Add("Esci", null, (_, _) => Exit());
     }
-    private void Status(string title, string detail)
+    private void Status(string title, string detail, bool error = false)
     {
         StatusLabel.Text = title; StatusDetail.Text = detail;
         ShortcutHint.Text = $"{_settings.Shortcut} · avvio / termina     Esc · annulla";
-        var state = _recording ? "recording" : _busy ? "processing" : title.Contains("non ", StringComparison.OrdinalIgnoreCase) ? "error" : "ready";
+        var state = _recording ? "recording" : _busy ? "processing" : error || title.Contains("non ", StringComparison.OrdinalIgnoreCase) ? "error" : "ready";
         if (_recording) _badge.SetStatus("Registrazione · clicca per fermare", "recording");
         else if (_busy) _badge.SetStatus(title, "processing");
         else if (_pending.Length > 0) _badge.SetStatus("Testo pronto · apri impostazioni", "error");
+        else if (state == "error") _badge.SetStatus(title, "error");
         else if (_wakeListening) _badge.SetStatus("In ascolto · dì Eugenio");
         else _badge.SetStatus(title, state);
     }
@@ -160,7 +161,7 @@ public partial class MainWindow : Window
             {
                 _wake.Stop(); _wakeListening = false; _badge.SetListening(false);
                 CancelSession();
-                Status("Seleziona un campo scrivibile", "La registrazione vocale non è iniziata perché non trovo un campo compatibile.");
+                Status("Seleziona un campo scrivibile", "La registrazione vocale non è iniziata perché non trovo un campo compatibile.", error: true);
                 return;
             }
             int device = MicrophoneBox.SelectedIndex;
@@ -355,7 +356,7 @@ public partial class MainWindow : Window
             _badge.SetListening(false);
             _desktop.BeginWatch();
             _target = await Task.Run(DesktopInput.Capture).WaitAsync(TimeSpan.FromSeconds(2), _session.Token);
-            if (_target == null) { CancelSession(); Status("Seleziona un campo scrivibile", "Campi protetti, non riconosciuti o app amministrative non sono utilizzabili."); return; }
+            if (_target == null) { CancelSession(); Status("Seleziona un campo scrivibile", "Campi protetti, non riconosciuti o app amministrative non sono utilizzabili.", error: true); return; }
             int device = MicrophoneBox.SelectedIndex;
             if (device < 0) throw new IOException();
             BeginSegmentPipeline(_session.Token);
@@ -384,7 +385,7 @@ public partial class MainWindow : Window
             audio = await _recorder.StopAsync();
             _segmentChannel?.Writer.TryComplete();
             sessionToken.ThrowIfCancellationRequested();
-            if (!TextPolicy.HasVoice(audio)) { FinishSession(); Status("Nessuna voce rilevata", "Avvicinati al microfono e riprova."); return; }
+            if (!TextPolicy.HasVoice(audio)) { FinishSession(); Status("Nessuna voce rilevata", "Avvicinati al microfono e riprova.", error: true); return; }
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(sessionToken);
             timeout.CancelAfter(TimeSpan.FromMinutes(10));
             if (_segmentWorker != null)
@@ -404,7 +405,7 @@ public partial class MainWindow : Window
                 if (!string.IsNullOrWhiteSpace(output.Final)) await InsertSegmentAsync(output.Final, timeout.Token);
             }
             Array.Clear(audio); audio = null;
-            if (_insertedBlocks == 0) { FinishSession(); Status("Nessuna dettatura riconosciuta", "Dì Eugenio e poi il testo da inserire."); return; }
+            if (_insertedBlocks == 0) { FinishSession(); Status("Nessuna dettatura riconosciuta", "Dì Eugenio e poi il testo da inserire.", error: true); return; }
             FinishSession(); Status("Testo inserito", $"Inseriti {_insertedBlocks} blocchi puliti. Nessun messaggio è stato inviato.");
         }
         catch (OperationCanceledException)
@@ -470,7 +471,7 @@ public partial class MainWindow : Window
         else
         {
             FinishSession();
-            Status("Dettatura interrotta", "Un blocco non è stato elaborato. Controlla il campo prima di riprovare.");
+            Status("Dettatura interrotta", "Un blocco non è stato elaborato. Controlla il campo prima di riprovare.", error: true);
         }
     }
 

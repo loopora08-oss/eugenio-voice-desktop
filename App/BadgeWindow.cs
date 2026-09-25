@@ -203,7 +203,7 @@ public sealed class BadgeWindow : Window
         }
         for (int i = 0; i < _bars.Length; i++)
         {
-            double wave = active ? .65 + Math.Abs(Math.Sin((_animationStep * .72) + i * 1.12)) * 2.6 : .85 + Math.Abs(Math.Sin((_animationStep * .16) + i * .55)) * .35;
+            double wave = active ? .65 + Math.Abs(Math.Sin((_animationStep * .72) + i * 1.12)) * 2.6 : 1;
             ((ScaleTransform)_bars[i].RenderTransform).ScaleY = wave;
             _bars[i].Opacity = active ? .95 : _listening ? .35 : .15;
         }
