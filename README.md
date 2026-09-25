@@ -2,7 +2,7 @@
 
 App personale Windows x64 per dettare in italiano e inglese, correggere il parlato e inserire il risultato nel campo attivo. Whisper trascrive localmente; la correzione usa il MiniCPM installato in Ollama attraverso `127.0.0.1`. Audio e testo non vengono inviati a servizi cloud. Nessun account o Python richiesto.
 
-**Stato della consegna:** badge mobile con posizione persistente, mascotte pixel art animata, wake word «Eugenio», inserimento dei blocchi dopo le pause e stili/dizionario locali. La versione 1.3.3 è stata compilata e provata su Windows: avvio, caricamento di Whisper e MiniCPM, apertura delle impostazioni e inserimento Unicode in una finestra di prova. Il riconoscimento della voce reale e gli editor delle chat richiedono ancora una prova manuale con il microfono dell’utente. I modelli si scaricano o si importano dal pannello. Nessuna protezione di Windows è stata disattivata.
+**Stato della consegna:** badge mobile con posizione persistente, mascotte pixel art animata, wake word «Eugenio», inserimento dei blocchi dopo le pause e stili/dizionario locali. La versione 1.3.4 è stata compilata e ha superato i test logici su Windows; la versione 1.3.3 è stata provata anche per avvio, caricamento di Whisper e MiniCPM, apertura delle impostazioni e inserimento Unicode in una finestra di prova. Il riconoscimento della voce reale e gli editor delle chat richiedono ancora una prova manuale con il microfono dell’utente. I modelli si scaricano o si importano dal pannello. Nessuna protezione di Windows è stata disattivata.
 
 ## Segnali visivi
 
@@ -34,7 +34,7 @@ Questa è una base tecnica per il deployment gestito, non una dichiarazione di c
 3. Nelle impostazioni scegli microfono, lingua, stile, modello Ollama e parole del dizionario (una per riga), poi premi **Salva impostazioni**. Il badge resta nella posizione scelta anche al riavvio. Per rilevare «Eugenio», l’app controlla brevi segmenti vocali con Whisper multilingue, interamente sul PC.
 4. Seleziona una casella di testo e dì **Eugenio**. Il badge cambia stato e la dettatura comincia; di’ il testo dopo la parola di attivazione.
 5. Clicca il badge oppure premi la scorciatoia configurata per fermare; **Esc** annulla. Dopo due minuti la registrazione termina automaticamente.
-6. Dopo una pausa, Whisper trascrive la frase e MiniCPM la ripulisce prima dell’inserimento. Due frasi vicine vengono elaborate insieme per risolvere meglio ripensamenti come «martedì… no, giovedì». Non viene premuto Invio. Se cambia la destinazione, il blocco viene trattenuto per il recupero esplicito.
+6. Dopo una pausa, Whisper trascrive la frase e MiniCPM la ripulisce prima dell’inserimento. Il primo blocco parte dopo una finestra di correzione di 1,5 secondi, anche se non arriva una seconda frase; due frasi vicine vengono elaborate insieme per risolvere meglio ripensamenti come «martedì… no, giovedì». La voce pronunciata mentre Whisper riconosce «Eugenio» viene conservata nel buffer della stessa registrazione. Non viene premuto Invio. Se cambia la destinazione, il blocco viene trattenuto per il recupero esplicito.
 
 Il badge resta sempre visibile sopra le altre finestre; trascinalo per riposizionarlo. Il pulsante con l’ingranaggio apre le impostazioni. Se Eugenio è già aperto, fare di nuovo doppio clic sull’icona del Desktop riapre le impostazioni; quando sono aperte compaiono anche nella barra delle applicazioni. Usa **Esci** nell’area di notifica per arrestare l’ascolto e scaricare i modelli dalla memoria. Non viene configurato alcun avvio automatico con Windows.
 

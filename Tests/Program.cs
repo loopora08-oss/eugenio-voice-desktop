@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Threading.Channels;
 using VoceLocale;
 using VoceLocale.Core;
 
@@ -38,6 +39,31 @@ Check("vocabulary control tokens escaped", TextPolicy.BuildPrompt("Ciao", "gener
 Check("wake phrase at start accepted", TextPolicy.IsWakePhrase("Eugenio, scrivi a Marco") && TextPolicy.IsWakePhrase("Ehi Eugenio, ciao"));
 Check("wake phrase elsewhere rejected", !TextPolicy.IsWakePhrase("Ho detto Eugenio prima."));
 Check("model hashes pinned", Models.All.All(m => m.Sha256.Length == 64 && m.Url.StartsWith("https://huggingface.co/")));
+var singleChannel = Channel.CreateUnbounded<byte[]>();
+var singleProcessed = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
+var singleRun = SpeechBlockQueue.RunAsync(singleChannel.Reader, TimeSpan.FromMilliseconds(60),
+    (audio, _) => { singleProcessed.TrySetResult(audio.ToArray()); return Task.CompletedTask; }, CancellationToken.None);
+byte[] firstSpeech = [1, 2, 3];
+singleChannel.Writer.TryWrite(firstSpeech);
+var firstBlock = await singleProcessed.Task.WaitAsync(TimeSpan.FromSeconds(2));
+Check("single paused phrase flushes before recording stops", firstBlock.SequenceEqual(new byte[] { 1, 2, 3 }));
+singleChannel.Writer.TryComplete();
+await singleRun;
+Check("processed speech buffer cleared", firstSpeech.All(value => value == 0));
+
+var joinedChannel = Channel.CreateUnbounded<byte[]>();
+var joinedProcessed = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
+var joinedRun = SpeechBlockQueue.RunAsync(joinedChannel.Reader, TimeSpan.FromMilliseconds(300),
+    (audio, _) => { joinedProcessed.TrySetResult(audio.ToArray()); return Task.CompletedTask; }, CancellationToken.None);
+byte[] beforeCorrection = [4, 5];
+byte[] afterCorrection = [6, 7];
+joinedChannel.Writer.TryWrite(beforeCorrection);
+await Task.Delay(30);
+joinedChannel.Writer.TryWrite(afterCorrection);
+Check("spoken correction segments share a block", (await joinedProcessed.Task.WaitAsync(TimeSpan.FromSeconds(2))).SequenceEqual(new byte[] { 4, 5, 6, 7 }));
+joinedChannel.Writer.TryComplete();
+await joinedRun;
+Check("joined speech buffers cleared", beforeCorrection.All(value => value == 0) && afterCorrection.All(value => value == 0));
 try { TextPolicy.BuildPrompt(new string('x', 8001)); Check("input limit", false); } catch (ArgumentException) { Check("input limit", true); }
 
 if (args.Contains("--ollama", StringComparer.OrdinalIgnoreCase))

@@ -149,19 +149,34 @@ public partial class MainWindow : Window
     private async Task BeginWakeDictationAsync(byte[] audio)
     {
         if (!_ready || _desktop == null || _recording || _busy || _setup != null) return;
-        _wake.Stop(); _wakeListening = false;
-        _badge.SetListening(false);
+        byte[] continuation = [];
         try
         {
             _busy = true;
             _session = new CancellationTokenSource();
             _desktop?.BeginWatch();
             _target = await Task.Run(DesktopInput.Capture).WaitAsync(TimeSpan.FromSeconds(2), _session.Token);
-            if (_target == null) { CancelSession(); Status("Seleziona un campo scrivibile", "La registrazione vocale non è iniziata perché non trovo un campo compatibile."); return; }
+            if (_target == null)
+            {
+                _wake.Stop(); _wakeListening = false; _badge.SetListening(false);
+                CancelSession();
+                Status("Seleziona un campo scrivibile", "La registrazione vocale non è iniziata perché non trovo un campo compatibile.");
+                return;
+            }
             int device = MicrophoneBox.SelectedIndex;
             if (device < 0) throw new IOException();
+            continuation = _wake.StopAndTakeProcessingAudio();
+            _wakeListening = false;
+            _badge.SetListening(false);
             BeginSegmentPipeline(_session.Token);
-            _recorder.Start(device, audio);
+            byte[] preRoll = new byte[audio.Length + continuation.Length];
+            try
+            {
+                audio.CopyTo(preRoll, 0);
+                continuation.CopyTo(preRoll, audio.Length);
+                _recorder.Start(device, preRoll);
+            }
+            finally { Array.Clear(preRoll); }
             _recording = true; _busy = false;
             _badge.SetSessionActive(true);
             SettingsPanel.IsEnabled = ModelPanel.IsEnabled = false;
@@ -169,7 +184,13 @@ public partial class MainWindow : Window
             Status("Registrazione · clicca il badge per fermare", "Attivata da Eugenio. Il testo verrà inserito senza inviare il messaggio.");
         }
         catch (OperationCanceledException) { }
-        catch { CancelSession(); Status("Registrazione non avviata", "Controlla il microfono e il permesso di accesso nelle impostazioni di Windows."); }
+        catch
+        {
+            _wake.Stop(); _wakeListening = false; _badge.SetListening(false);
+            CancelSession();
+            Status("Registrazione non avviata", "Controlla il microfono e il permesso di accesso nelle impostazioni di Windows.");
+        }
+        finally { Array.Clear(continuation); }
     }
     private static string StripWakePhrase(string text) => System.Text.RegularExpressions.Regex.Replace(
         text, @"^\s*(?:Eugenio|Hey Eugenio|Ehi Eugenio)[,;:!?.\s-]*", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant).Trim();
@@ -421,19 +442,9 @@ public partial class MainWindow : Window
 
     private async Task ProcessSegmentQueueAsync(ChannelReader<byte[]> reader, CancellationToken token)
     {
-        byte[]? carry = null;
         try
         {
-            await foreach (var segment in reader.ReadAllAsync(token))
-            {
-                if (carry == null) { carry = segment; continue; }
-                var block = new byte[carry.Length + segment.Length];
-                carry.CopyTo(block, 0); segment.CopyTo(block, carry.Length);
-                Array.Clear(carry); Array.Clear(segment); carry = null;
-                try { await ProcessSegmentAsync(block, token); }
-                finally { Array.Clear(block); }
-            }
-            if (carry != null) { await ProcessSegmentAsync(carry, token); Array.Clear(carry); carry = null; }
+            await SpeechBlockQueue.RunAsync(reader, TimeSpan.FromMilliseconds(1500), ProcessSegmentAsync, token);
         }
         catch
         {
@@ -441,11 +452,6 @@ public partial class MainWindow : Window
             if (!token.IsCancellationRequested)
                 _ = Dispatcher.BeginInvoke(new Action(async () => await StopAfterSegmentErrorAsync()));
             throw;
-        }
-        finally
-        {
-            if (carry != null) Array.Clear(carry);
-            while (reader.TryRead(out var queued)) Array.Clear(queued);
         }
     }
 
