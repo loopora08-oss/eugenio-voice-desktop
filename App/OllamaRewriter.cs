@@ -3,6 +3,7 @@ using System.IO;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using VoceLocale.Core;
 
 namespace VoceLocale;
@@ -30,14 +31,36 @@ public sealed class OllamaRewriter : IDisposable
         var watch = Stopwatch.StartNew();
         if (string.IsNullOrWhiteSpace(original) || original.Length > TextPolicy.MaxInputCharacters)
             return (false, null, watch.ElapsedMilliseconds);
+        var sentences = TextPolicy.Sentences(original);
+        if (sentences.Count > 1)
+        {
+            var edited = new List<string>();
+            foreach (var sentence in sentences)
+            {
+                var part = await RewriteAsync(model, sentence, mode, vocabulary, token).ConfigureAwait(false);
+                if (!part.Ok || !TextPolicy.TryValidate(sentence, part.Text ?? "", false, out var cleaned))
+                    return (false, null, watch.ElapsedMilliseconds);
+                edited.Add(cleaned);
+            }
+            return (true, string.Join(" ", edited), watch.ElapsedMilliseconds);
+        }
         bool correction = TextPolicy.HasCorrection(original);
+        bool english = Regex.IsMatch(original, @"\b(?:let|let's|the|we|please|I|not|Thursday|Tuesday)\b", RegexOptions.IgnoreCase)
+            && !Regex.IsMatch(original, @"\b(?:non|voglio|giovedì|martedì|ci|vediamo|scusa|intendevo)\b", RegexOptions.IgnoreCase);
         var messages = new List<ChatMessage>
         {
             new("system", TextPolicy.BuildSystemPrompt(mode, vocabulary, correction)),
         };
 
         // Short, literal demonstrations help a small local model follow dictation-editing rules.
-        var examples = correction
+        var examples = correction && english
+            ? new (string Input, string Output)[]
+            {
+                ("Please send the contract to Mary, actually to Julia.", "Please send the contract to Julia."),
+                ("The total is 100, sorry, 80 dollars.", "The total is 80 dollars."),
+                ("The appointment is Monday, no, I meant Friday at nine.", "The appointment is Friday at nine.")
+            }
+            : correction
             ? new (string Input, string Output)[]
             {
                 ("Per favore invia il contratto a Marta, anzi a Giulia.", "Per favore invia il contratto a Giulia."),
@@ -61,7 +84,7 @@ public sealed class OllamaRewriter : IDisposable
         messages.Add(new("user", JsonSerializer.Serialize(new { transcript = transcriptData })));
 
         var request = new ChatRequest(model, messages.ToArray(), Stream: false, Think: false,
-            Options: new ChatOptions(Temperature: 0.2, TopP: 0.8, NumPredict: 1536), KeepAlive: "10m");
+            Options: new ChatOptions(Temperature: 0.2, TopP: 0.8, NumPredict: 1536, Seed: 42), KeepAlive: "10m");
         using var response = await _http.PostAsJsonAsync("api/chat", request, JsonOptions, token).ConfigureAwait(false);
         if (!response.IsSuccessStatusCode) return (false, null, watch.ElapsedMilliseconds);
         var result = await response.Content.ReadFromJsonAsync<ChatResponse>(JsonOptions, token).ConfigureAwait(false);
@@ -78,7 +101,7 @@ public sealed class OllamaRewriter : IDisposable
     private sealed record TagsResponse(ModelTag[] Models);
     private sealed record ModelTag(string Name);
     private sealed record ChatMessage(string Role, string Content);
-    private sealed record ChatOptions(double Temperature, double TopP, int NumPredict);
+    private sealed record ChatOptions(double Temperature, double TopP, int NumPredict, int Seed);
     private sealed record ChatRequest(string Model, ChatMessage[] Messages, bool Stream, bool Think,
         ChatOptions Options, string KeepAlive);
     private sealed record ChatResponse(ChatMessage Message, bool Done);

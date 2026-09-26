@@ -173,6 +173,15 @@ public static class TextPolicy
         // Reject obvious cross-language rewrites; recover the original instead of silently translating.
         if (ItalianMarkers.Matches(original).Count >= 2 && ItalianMarkers.Matches(s).Count == 0 && EnglishMarkers.Matches(s).Count >= 2) return false;
         if (EnglishMarkers.Matches(original).Count >= 2 && EnglishMarkers.Matches(s).Count == 0 && ItalianMarkers.Matches(s).Count >= 2) return false;
+        // An Italian/English transcript must not acquire another script or lose an
+        // explicit negation unless the speaker actually corrects that statement.
+        const string foreignScript = @"[\p{IsCJKUnifiedIdeographs}\p{IsHiragana}\p{IsKatakana}\p{IsCyrillic}\p{IsArabic}\p{IsHebrew}]";
+        if (!Regex.IsMatch(original, foreignScript) && Regex.IsMatch(s, foreignScript)) return false;
+        if (!HasCorrection(original))
+        {
+            const string negations = @"\b(?:non|not|never)\b|n['’]t\b";
+            if (Regex.Matches(s, negations, RegexOptions.IgnoreCase).Count < Regex.Matches(original, negations, RegexOptions.IgnoreCase).Count) return false;
+        }
         // Conservative damage check, not a semantic guarantee. Recover the original rather
         // than silently inserting a model reply or a heavily shortened summary.
         var inputWords = Regex.Matches(original, @"[\p{L}\p{N}]+").Count;

@@ -2,7 +2,7 @@
 
 App personale Windows x64 per dettare in italiano e inglese, correggere il parlato e inserire il risultato nel campo attivo. Whisper trascrive localmente; la correzione usa il MiniCPM installato in Ollama attraverso `127.0.0.1`. Audio e testo non vengono inviati a servizi cloud. Nessun account o Python richiesto.
 
-**Stato della consegna:** badge mobile con posizione persistente, mascotte pixel art animata, wake word «Eugenio», inserimento dei blocchi dopo le pause e stili/dizionario locali. La versione 1.3.5 è stata compilata e ha superato i test logici su Windows; il microfono Intel del PC è stato aperto e misurato nella sessione Windows normale. Whisper e MiniCPM caricano, e l’inserimento Unicode è stato provato in una finestra di test. La prova finale con la voce dell’utente e negli editor delle chat resta necessaria. I modelli si scaricano o si importano dal pannello. Nessuna protezione di Windows è stata disattivata.
+**Stato della consegna:** badge mobile con posizione persistente, mascotte pixel art animata, wake word «Eugenio», inserimento dei blocchi dopo le pause e stili/dizionario locali. La versione 1.3.6 è stata compilata e ha superato i test logici e MiniCPM su Windows; prove audio sintetiche italiane e inglesi verificano Whisper → MiniCPM, correzioni di date e negazioni; il microfono Intel del PC è stato aperto e misurato nella sessione Windows normale. Whisper e MiniCPM caricano, e l’inserimento Unicode è stato provato in una finestra di test. La prova finale con la voce dell’utente e negli editor delle chat resta necessaria. I modelli si scaricano o si importano dal pannello. Nessuna protezione di Windows è stata disattivata.
 
 ## Segnali visivi
 
@@ -97,7 +97,7 @@ Per i test reali dei modelli e i benchmark, usando solo voci sintetiche Windows 
 dotnet run --project Tests/Tests.csproj -c Release -- C:/percorso/VoceLocale C:/percorso/work/audio-tests
 ```
 
-Con Ollama avviato e il modello MiniCPM installato, `dotnet run --project Tests/Tests.csproj -c Release -- --ollama` prova l’API locale e tre casi sintetici di correzione/negazione.
+Con Ollama avviato e il modello MiniCPM installato, `dotnet run --project Tests/Tests.csproj -c Release -- --ollama` prova l’API locale, correzioni italiane e inglesi, negazioni indipendenti e istruzioni dettate come testo. La 1.3.6 corregge ciascuna frase nel suo contesto e sceglie esempi nella lingua del dettato; un risultato anomalo viene trattenuto per il recupero manuale.
 
 Il test dei modelli stampa esclusivamente i campioni sintetici che genera o riceve: non usarlo con registrazioni personali se non vuoi salvarne l’output nella console. Non usa il microfono.
 
