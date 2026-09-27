@@ -143,8 +143,9 @@ public partial class MainWindow : Window
             _wakeListening = true;
             _badge.SetStatus("Pronto · dì «Eugenio»");
             _badge.SetListening(true);
+            Status("In ascolto · solo sul PC", _shortcutNotice + "Dì Eugenio per iniziare. Clicca il badge o usa la scorciatoia per fermare.");
         }
-        catch { _wakeListening = false; _badge.SetListening(false); _badge.SetStatus("Microfono non disponibile", "error"); }
+        catch { _wakeListening = false; _badge.SetListening(false); Status("Microfono non disponibile", "Non riesco ad aprire il microfono selezionato.", error: true); }
     }
     private async Task RecognizeWakeSegmentAsync(byte[] audio)
     {
@@ -265,7 +266,7 @@ public partial class MainWindow : Window
         catch (OperationCanceledException) { Status("Preparazione annullata", "Puoi riprovare quando vuoi."); }
         catch (HttpRequestException) { ModelsLabel.Text = "Ollama non raggiungibile · Whisper resta locale."; Status("Avvia Ollama", "Eugenio cerca Ollama solo su questo PC (127.0.0.1:11434). Poi premi ‘Verifica modelli’."); }
         catch { Status("Motori locali non avviati", "Verifica Whisper, Ollama e gli eventuali blocchi di Windows."); }
-        finally { _setup = null; SetSetupBusy(false); }
+        finally { _setup = null; SetSetupBusy(false); StartWakeListener(); }
     }
     private async Task WarmupAsync(CancellationToken token)
     {
@@ -279,9 +280,8 @@ public partial class MainWindow : Window
         if (!a.Ok || !installed.Contains(rewriteModel, StringComparer.OrdinalIgnoreCase)) throw new IOException();
         _settings.RewriteModel = rewriteModel;
         _ready = true;
-        if (_hotkeyAvailable) Status("In ascolto · solo sul PC", _shortcutNotice + "Dì Eugenio per iniziare. Clicca il badge o usa la scorciatoia per fermare.");
+        if (_hotkeyAvailable) Status("Motori pronti", _shortcutNotice + "Avvio del microfono…");
         else Status("Imposta una scorciatoia libera", "I motori sono pronti. La combinazione scelta è occupata: modificala e salva prima di dettare.");
-        StartWakeListener();
     }
     private async void LoadModels(object sender, RoutedEventArgs e) => await VerifyModelsAsync();
     private async Task RefreshRewriteModelsAsync()
@@ -346,7 +346,7 @@ public partial class MainWindow : Window
         catch (InvalidDataException) { Status("Modello non valido", "Il file non supera la verifica SHA-256. Importa o scarica il modello esatto indicato."); }
         catch (HttpRequestException) { Status("Download Whisper non riuscito", "Puoi scaricare ggml-small.bin nel browser e poi usare ‘Importa Whisper da disco’. Ollama MiniCPM resta locale."); }
         catch { Status("Preparazione non riuscita", "Controlla connessione, spazio su disco e file dei motori. Puoi riprovare."); }
-        finally { _setup = null; SetSetupBusy(false); }
+        finally { _setup = null; SetSetupBusy(false); StartWakeListener(); }
     }
     private void CancelDownload(object sender, RoutedEventArgs e) => _setup?.Cancel();
     private async Task ToggleAsync()
