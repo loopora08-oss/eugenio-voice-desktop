@@ -4,7 +4,9 @@
 
 La versione attuale include Notetaker dedicato, cattura meeting senza limite di due minuti, pause/ripresa, appunti MiniCPM, traduzione letterale TranslateGemma locale e salvataggio esplicito JSON/Markdown. La build autonoma dei tre eseguibili e 100 controlli logici sono riusciti. La verifica a blocchi con Whisper reale supera i sei campioni sui campi critici dichiarati dal test; le prime tre frasi richiedono 2,7–3 secondi per il riconoscimento. Il test del microfono tramite interfaccia ha verificato avvio, pausa, ripresa e termine senza esportare contenuti personali.
 
-La prova in tempo reale di 61 minuti è ancora in corso e non è dichiarata superata. Dettagli, misure e limiti aggiornati in [docs/meeting-1.4.0.md](docs/meeting-1.4.0.md). Le sezioni seguenti documentano revisioni precedenti e non descrivono lo stato attuale dei modelli o dell'SDK installato. Il pacchetto rimane non firmato; nessuna impostazione di sicurezza è stata cambiata.
+La prova in tempo reale ha completato 61 minuti e tutti i 732 blocchi senza errori. Il ritardo al 95° percentile è 13,37 secondi: il criterio interno inferiore a dieci secondi non è superato e il report mantiene `success: false`. La traduzione era disattivata nella prova lunga. Le cinque prove audio end-to-end finali superano i controlli critici; i campioni di 10, 30 e 120 secondi sono completati, con fallback a estratti originali per due riepiloghi MiniCPM rifiutati. Salvataggio JSON, riapertura e Markdown sono verificati dall'interfaccia su contenuti sintetici. La build della revisione finale è riuscita anche su GitHub.
+
+Dettagli, misure e limiti aggiornati in [docs/meeting-1.4.0.md](docs/meeting-1.4.0.md). Le sezioni seguenti documentano revisioni precedenti e non descrivono lo stato attuale dei modelli o dell'SDK installato. Il pacchetto rimane non firmato; nessuna impostazione di sicurezza è stata cambiata. Il controllo NuGet delle vulnerabilità non ha potuto raggiungere il servizio durante la build locale; non è dichiarato un audit di sicurezza completato.
 
 ## Mascotte Eugenio — 24 settembre 2026
 

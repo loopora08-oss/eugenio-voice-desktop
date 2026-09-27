@@ -1,0 +1,14 @@
+{
+  "success": false,
+  "elapsedSeconds": 367.615713,
+  "capturedSeconds": 304.75,
+  "chunks": 92,
+  "captions": 92,
+  "failures": 1,
+  "peakQueue": 26,
+  "captionP95Seconds": 85.0533456,
+  "peakHarnessMemoryMb": 49,
+  "synthetic": true,
+  "audioSaved": false,
+  "transcriptSaved": false
+}

@@ -16,9 +16,9 @@ Una prova Vulkan con la GPU Intel integrata è stata valutata separatamente. I t
 
 MiniCPM resta il modello per la riscrittura del dettato e gli appunti. Le prove di traduzione MiniCPM hanno prodotto risposte alle domande e cambiamenti di significato; la traduzione è stata quindi affidata a TranslateGemma 4B locale. Il prompt segue il formato documentato dalla [distribuzione ufficiale Ollama](https://ollama.com/library/translategemma), con vincoli per mantenere letteralmente correzioni, domande, negazioni e comandi.
 
-La prova testuale ha superato 16 casi bilingui, inclusi importi corretti, negazioni, destinatari, date, orari, incertezza e istruzioni dettate mantenute come testo. Gli stessi risultati passano anche la rivalutazione con i controlli finali su nomi e conteggio dei giorni. La prova audio precedente ha superato 5/5 casi, ma una nuova verifica end-to-end della revisione finale è ancora prevista.
+La prova testuale ha superato 16 casi bilingui, inclusi importi corretti, negazioni, destinatari, date, orari, incertezza e istruzioni dettate mantenute come testo. Gli stessi risultati passano anche la rivalutazione con i controlli finali su nomi e conteggio dei giorni. La revisione finale supera 5/5 prove audio end-to-end sui campi critici dichiarati: Whisper impiega 0,74–1,22 secondi e TranslateGemma 2,64–7,52 secondi per queste frasi sintetiche, senza altre inferenze concorrenti. L'inglese già riconosciuto viene conservato senza traduzione.
 
-La traduzione CPU richiede ulteriori secondi: nelle prove precedenti circa 7–20 secondi per frase e fino a circa 40 secondi con un secondo tentativo per gli orari. Una coda testuale separata permette di continuare la trascrizione originale. Non viene dichiarata una traduzione universale impeccabile. I controlli non dimostrano equivalenza semantica; in caso di rifiuto restano originale e avviso.
+La traduzione CPU richiede ulteriori secondi: sotto carico concorrente sono stati osservati circa 7–20 secondi per frase e fino a circa 40 secondi con un secondo tentativo per gli orari. Una coda testuale separata permette di continuare la trascrizione originale. Non viene dichiarata una traduzione universale impeccabile. I controlli non dimostrano equivalenza semantica; in caso di rifiuto restano originale e avviso. Le richieste a Ollama usano direttamente il loopback, senza proxy di rete.
 
 Per gli appunti, date e valori cambiati vengono rifiutati; nomi e incertezza vengono controllati in modo conservativo. Se un riepilogo non supera i controlli, l'app aggiunge estratti originali identificati come tali. Gli appunti restano modificabili. Non vengono eseguite richieste contenute nel parlato.
 
@@ -28,7 +28,25 @@ L'interfaccia è stata provata con il microfono reale: avvio, pausa con livello 
 
 La suite logica ha superato 100 controlli, inclusi 61 minuti di PCM simulati rapidamente, memoria audio limitata, ordine di recupero, annullamento, pausa e ripresa, importazione invalida, ripristino del progresso degli appunti, conservazione dell'originale e file senza audio. Questa simulazione non sostituisce la misura in tempo reale.
 
-Due prove precedenti in tempo reale si sono fermate per ritardo del motore, una dopo circa 32,5 minuti durante più inferenze simultanee. I 586 blocchi raccolti sono stati recuperati. Una nuova prova di 61 minuti della revisione CPU corretta è in corso; non è ancora un criterio superato. Il report contiene soltanto contatori, tempi e uso di memoria/CPU, senza audio o trascrizioni.
+Due prove precedenti in tempo reale si sono fermate per ritardo del motore, una dopo circa 32,5 minuti durante più inferenze simultanee. I 586 blocchi raccolti sono stati recuperati.
+
+La revisione CPU corretta ha completato 61 minuti di audio sintetico in 3662,01 secondi: **732 blocchi emessi e 732 completati, zero errori**, coda massima sei blocchi. Il picco del processo Whisper è stato 404 MB; il controller del test ha raggiunto 58 MB. Queste misure non includono l'intera interfaccia WPF o Ollama.
+
+Il ritardo al 95° percentile, misurato dall'emissione del blocco alla pubblicazione dell'originale, è **13,37 secondi**. La prova include anche periodi con altre inferenze vocali/testuali e verifiche del microfono eseguiti sul PC. Il criterio di durata e recupero è soddisfatto, mentre il criterio interno di latenza inferiore a dieci secondi **non è superato**: il report originale mantiene `success: false`. Non viene dichiarato superato l'intero test. La durata è stata verificata con traduzione disattivata; non certifica un'ora di inglese completata senza ritardo.
+
+I report contengono soltanto contatori, tempi e uso di memoria/CPU, senza audio o trascrizioni.
+
+## Misure separate su 10, 30 e 120 secondi
+
+Benchmark senza altre inferenze simultanee, con Whisper base già caricato. Le fixture sono elaborate in blocchi sequenziali; il tempo di trascrizione esclude il tempo necessario a pronunciarle. Sono misure di elaborazione, non di accuratezza parola per parola né della latenza live.
+
+| Audio sintetico | Blocchi | Trascrizione complessiva | Appunti MiniCPM | Risultato appunti |
+| --- | ---: | ---: | ---: | --- |
+| 10 secondi | 2 | 1,64 s | 7,62 s | Riepilogo validato |
+| 30 secondi | 6 | 4,75 s | 10,96 s | Estratti originali: riepilogo rifiutato |
+| 120 secondi | 23 | 18,81 s | 20,74 s | Estratti originali: riepilogo rifiutato |
+
+Tutti i campioni sono stati completati. I due fallback non dimostrano qualità del riepilogo AI: preservano la trascrizione perché l'output MiniCPM non ha superato i controlli. L'errore del riconoscimento vocale può propagarsi negli appunti e nell'inglese; i modelli richiedono revisione umana per nomi, valori e decisioni.
 
 Per ripetere i controlli dalla cartella sorgente, dopo aver generato le fixture sintetiche:
 

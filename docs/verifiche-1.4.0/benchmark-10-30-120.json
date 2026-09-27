@@ -1,0 +1,47 @@
+{
+  "success": true,
+  "measurements": [
+    {
+      "synthetic": true,
+      "audioSeconds": 10,
+      "chunks": 2,
+      "captions": 2,
+      "transcriptionMs": 1641,
+      "summedEngineMs": 1622,
+      "notesMs": 7619,
+      "notesExtractiveFallback": false,
+      "processingCompleted": true,
+      "wordAccuracyMeasured": false,
+      "transcriptSaved": false,
+      "audioSaved": false
+    },
+    {
+      "synthetic": true,
+      "audioSeconds": 30,
+      "chunks": 6,
+      "captions": 6,
+      "transcriptionMs": 4752,
+      "summedEngineMs": 4726,
+      "notesMs": 10963,
+      "notesExtractiveFallback": true,
+      "processingCompleted": true,
+      "wordAccuracyMeasured": false,
+      "transcriptSaved": false,
+      "audioSaved": false
+    },
+    {
+      "synthetic": true,
+      "audioSeconds": 120,
+      "chunks": 23,
+      "captions": 23,
+      "transcriptionMs": 18814,
+      "summedEngineMs": 18734,
+      "notesMs": 20740,
+      "notesExtractiveFallback": true,
+      "processingCompleted": true,
+      "wordAccuracyMeasured": false,
+      "transcriptSaved": false,
+      "audioSaved": false
+    }
+  ]
+}
