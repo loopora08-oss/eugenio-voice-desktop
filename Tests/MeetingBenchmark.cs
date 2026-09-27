@@ -19,31 +19,37 @@ internal static class MeetingBenchmark
             byte[] pcm = MeetingAudioChecks.ReadPcm(Path.Combine(fixtures, $"benchmark-{seconds}.wav"));
             var entries = new List<MeetingEntry>(); var timings = new List<long>();
             using var segments = new MeetingAudioSegmenter();
-            using var stream = new MeetingStream(async (chunk, token) =>
-            {
-                var result = await engine.RunAsync(new(Guid.NewGuid().ToString(), "transcribe", Storage.ModelPath(Models.FastWhisper), "auto", chunk.Audio, Mode: "fast"), token);
-                timings.Add(result.Milliseconds); return result;
-            }, (_, _) => Task.FromResult<string?>(null));
-            stream.EntryAdded += entry => entries.Add(entry);
-            int errors = 0, chunks = 0;
-            stream.Fault += _ => errors++;
-            segments.ChunkReady += chunk => { chunks++; if (!stream.Submit(chunk, false)) errors++; };
+            // Offline throughput: do not simulate a 120-second recording as one instant
+            // burst into the live queue. The separate soak checks actual live pacing.
+            var blocks = new List<MeetingAudioChunk>();
+            segments.ChunkReady += blocks.Add;
+            int errors = 0;
             var watch = Stopwatch.StartNew();
             try
             {
-                segments.Push(pcm); segments.Flush(); await stream.CompleteAsync();
+                segments.Push(pcm); segments.Flush(); string previous = "";
+                foreach (var chunk in blocks)
+                {
+                    var result = await engine.RunAsync(new(Guid.NewGuid().ToString(), "transcribe", Storage.ModelPath(Models.FastWhisper), "auto", chunk.Audio, Mode: "fast"), cancel.Token);
+                    timings.Add(result.Milliseconds);
+                    if (!result.Ok) { errors++; continue; }
+                    string caption = MeetingText.RemoveOverlap(previous, result.Text ?? "", chunk.Overlap);
+                    previous = result.Text ?? "";
+                    if (caption.Length > 0) entries.Add(new(chunk.Sequence, chunk.StartSeconds, chunk.EndSeconds, caption));
+                    Array.Clear(chunk.Audio);
+                }
                 long transcriptionMs = watch.ElapsedMilliseconds;
                 string original = string.Join("\n", entries.Select(e => e.Original));
                 var notes = await text.NotesAsync("minicpm-assistente-it:latest", original, cancel.Token);
                 bool ok = errors == 0 && entries.Count > 0 && entries.All(e => e.Warning == null) && notes.Ok;
                 if (!ok) failures++;
-                var row = new { synthetic = true, audioSeconds = seconds, chunks, captions = entries.Count,
+                var row = new { synthetic = true, audioSeconds = seconds, chunks = blocks.Count, captions = entries.Count,
                     transcriptionMs, summedEngineMs = timings.Sum(), notesMs = notes.Milliseconds,
                     notesExtractiveFallback = notes.ExtractiveFallback, processingCompleted = ok,
                     wordAccuracyMeasured = false, transcriptSaved = false, audioSaved = false };
                 measurements.Add(row); Console.WriteLine(JsonSerializer.Serialize(row));
             }
-            finally { Array.Clear(pcm); }
+            finally { Array.Clear(pcm); foreach (var chunk in blocks) Array.Clear(chunk.Audio); }
         }
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(reportPath))!);
         File.WriteAllText(reportPath, JsonSerializer.Serialize(new { success = failures == 0, measurements }, new JsonSerializerOptions { WriteIndented = true }));

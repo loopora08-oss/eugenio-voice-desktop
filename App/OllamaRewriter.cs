@@ -12,7 +12,8 @@ namespace VoceLocale;
 public sealed class OllamaRewriter : IDisposable
 {
     private static readonly Uri Endpoint = new("http://127.0.0.1:11434/");
-    private readonly HttpClient _http = new() { BaseAddress = Endpoint, Timeout = Timeout.InfiniteTimeSpan };
+    private readonly HttpClient _http = new(new HttpClientHandler { UseProxy = false })
+        { BaseAddress = Endpoint, Timeout = Timeout.InfiniteTimeSpan };
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     public async Task<IReadOnlyList<string>> GetModelsAsync(CancellationToken token)

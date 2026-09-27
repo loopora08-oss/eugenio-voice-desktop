@@ -16,7 +16,7 @@ Gli **Appunti automatici** usano `minicpm-assistente-it:latest`; puoi modificarl
 
 ## Segnali visivi
 
-Il badge rettangolare è trascinabile. Verde con alone pulsante significa microfono attivo e in attesa della parola di attivazione; le barrette turchesi restano ferme a riposo e si muovono quando il rilevatore sente la voce. «Ti sento» conferma il rilevamento, non il riconoscimento della parola Eugenio. Rosso con onde animate indica la dettatura in corso; ambra indica trascrizione o correzione; un errore resta visibile sul badge anche se l’ascolto riparte. Grigio indica che il microfono non è in ascolto o i motori vocali non sono pronti. Per dettare serve il modello Whisper small locale; per riscrivere serve Ollama avviato con il MiniCPM già installato.
+Il badge rettangolare è trascinabile anche durante la registrazione; un clic senza trascinare ferma la sessione. Verde con alone pulsante significa microfono attivo e in attesa della parola di attivazione; le barrette turchesi restano ferme a riposo e si muovono quando il rilevatore sente la voce. «Ti sento» conferma il rilevamento, non il riconoscimento della parola Eugenio. Rosso con onde animate indica dettatura o meeting in corso; ambra indica elaborazione; un errore resta visibile sul badge anche se l’ascolto riparte. In pausa meeting il badge diventa grigio, le barrette si fermano e il genio torna nella lampada: il microfono è spento. Dopo Termina può riprendere l'ascolto della parola Eugenio, segnalato in verde. Per dettare serve il modello Whisper small locale; per riscrivere serve Ollama avviato con il MiniCPM già installato.
 
 ## Mascotte Eugenio
 

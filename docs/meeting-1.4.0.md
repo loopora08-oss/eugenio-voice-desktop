@@ -24,6 +24,8 @@ Per gli appunti, date e valori cambiati vengono rifiutati; nomi e incertezza ven
 
 ## Verifiche della durata
 
+L'interfaccia è stata provata con il microfono reale: avvio, pausa con livello a zero e badge grigio, ripresa con badge rosso e arresto. Un documento sintetico con durata 01:01:01 è stato salvato in JSON, riaperto e poi esportato in Markdown dall'interfaccia, preservando originale, inglese e timestamp 01:00:01. I file di prova non contengono audio. Nessun contenuto personale è stato esportato.
+
 La suite logica ha superato 100 controlli, inclusi 61 minuti di PCM simulati rapidamente, memoria audio limitata, ordine di recupero, annullamento, pausa e ripresa, importazione invalida, ripristino del progresso degli appunti, conservazione dell'originale e file senza audio. Questa simulazione non sostituisce la misura in tempo reale.
 
 Due prove precedenti in tempo reale si sono fermate per ritardo del motore, una dopo circa 32,5 minuti durante più inferenze simultanee. I 586 blocchi raccolti sono stati recuperati. Una nuova prova di 61 minuti della revisione CPU corretta è in corso; non è ancora un criterio superato. Il report contiene soltanto contatori, tempi e uso di memoria/CPU, senza audio o trascrizioni.

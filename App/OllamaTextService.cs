@@ -10,7 +10,8 @@ namespace VoceLocale;
 
 public sealed class OllamaTextService : IDisposable
 {
-    private readonly HttpClient _http = new() { BaseAddress = new Uri("http://127.0.0.1:11434/"), Timeout = Timeout.InfiniteTimeSpan };
+    private readonly HttpClient _http = new(new HttpClientHandler { UseProxy = false })
+        { BaseAddress = new Uri("http://127.0.0.1:11434/"), Timeout = Timeout.InfiniteTimeSpan };
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
     public async Task<(bool Ok, string? Text, long Milliseconds)> TranslateAsync(string model, string transcript, string[]? names, CancellationToken token, string? language = null)
     {

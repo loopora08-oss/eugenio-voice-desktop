@@ -204,7 +204,8 @@ public partial class MainWindow : Window
     }
     private async Task BeginWakeDictationAsync(byte[] audio)
     {
-        if (!_ready || _desktop == null || _recording || _busy || _setup != null) return;
+        // A wake result may already be queued when a meeting acquires the microphone.
+        if (!_ready || _desktop == null || _closing || _recording || _busy || _setup != null || _meetingHeld || _pending.Length > 0) return;
         byte[] continuation = [];
         try
         {

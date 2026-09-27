@@ -146,7 +146,9 @@ public partial class MeetingWindow : Window
         {
             if (!_paused)
             {
-                await _recorder.StopAsync(); _paused = true;
+                await _recorder.StopAsync();
+                if (_finishing || _close) return;
+                _paused = true;
                 StateLabel.Text = "In pausa · microfono spento"; PauseButton.Content = "Riprendi";
                 MicrophoneLevel.Value = 0; InputLevelChanged?.Invoke(0); LevelLabel.Text = "Microfono spento"; CaptureStateChanged?.Invoke("Meeting in pausa · microfono spento", false, "paused");
             }
@@ -157,7 +159,7 @@ public partial class MeetingWindow : Window
             }
         }
         catch { StateLabel.Text = "Microfono non disponibile. Gli appunti sono conservati."; await StopAsync(); }
-        finally { PauseButton.IsEnabled = _recorder != null; }
+        finally { PauseButton.IsEnabled = _recorder != null && !_finishing; }
     }
     private async void StopMeeting(object sender, RoutedEventArgs e) => await StopAsync();
     public Task StopAsync()
