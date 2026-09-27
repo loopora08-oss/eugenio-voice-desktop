@@ -13,20 +13,24 @@ public sealed record ModelSpec(string Id, string FileName, string Url, string Sh
 
 public static class Models
 {
+    public static readonly ModelSpec FastWhisper = new("whisper-base", "ggml-base.bin",
+        "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-base.bin?download=true",
+        "60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe", 147951465);
     public static readonly ModelSpec Whisper = new("whisper", "ggml-small.bin",
         "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin?download=true",
         "1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b", 487601967);
     public static readonly ModelSpec Rewrite = new("rewrite", "MiniCPM5-2B-Q4_K_M.gguf",
         "https://huggingface.co/openbmb/MiniCPM5-2B-GGUF/resolve/b740251/MiniCPM5-2B-Q4_K_M.gguf?download=true",
         "ec2d5801640099e97d8d7e8003ad4d81f336e757811f03a26173dddf386602fd", 1561318368);
-    public static readonly ModelSpec[] All = [Whisper, Rewrite];
+    public static readonly ModelSpec[] All = [Whisper, FastWhisper, Rewrite];
     // The rewriter can be provided by a locally running Ollama installation.
-    public static readonly ModelSpec[] Audio = [Whisper];
+    public static readonly ModelSpec[] Audio = [Whisper, FastWhisper];
 }
 
 public sealed class Settings
 {
     public string Language { get; set; } = "auto";
+    public string TranscriptionProfile { get; set; } = "fast";
     public string Microphone { get; set; } = "";
     public string Shortcut { get; set; } = "Ctrl+Alt+Space";
     public string Mode { get; set; } = "general";
@@ -199,8 +203,15 @@ public static class TextPolicy
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
     public static bool IsWakePhrase(string text) => Regex.IsMatch(text,
-        @"^\s*(?:(?:ehi|hey)\s+)?eugenio\b",
+        @"^\s*(?:(?:ehi|hey|eh|e)[,;:!?.]*\s+)?eugenio\b",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+    public static string StripWakePhrase(string text) => Regex.Replace(text,
+        @"^\s*(?:(?:ehi|hey|eh|e)[,;:!?.]*\s+)?eugenio\b[,;:!?.\s-]*", "",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant).Trim();
+
+    public static int FastAudioContext(int samples) => Math.Clamp(
+        (int)Math.Ceiling((samples / 16000d + 1) * 50 / 128) * 128, 256, 1500);
 
     public static IReadOnlyList<string> Sentences(string text)
     {

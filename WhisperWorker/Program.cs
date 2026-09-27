@@ -22,7 +22,7 @@ while (await Console.In.ReadLineAsync() is { } line)
             loaded = request.ModelPath;
         }
         string result = "";
-        if (request.Operation == "transcribe")
+        if (request.Operation is "transcribe" or "wake")
         {
             var pcm = request.Audio ?? throw new InvalidDataException();
             try
@@ -35,8 +35,13 @@ while (await Console.In.ReadLineAsync() is { } line)
                     float peak = samples.Select(Math.Abs).DefaultIfEmpty(0).Max();
                     float gain = peak > 0 ? Math.Clamp(.8f / peak, 1, 12) : 1;
                     if (gain > 1) for (int i = 0; i < samples.Length; i++) samples[i] *= gain;
-                    using var processor = factory!.CreateBuilder().WithLanguage(request.Language)
-                        .WithThreads(Math.Clamp(Environment.ProcessorCount / 2, 2, 8)).Build();
+                    var builder = factory!.CreateBuilder().WithLanguage(request.Language).WithNoContext()
+                        .WithThreads(Math.Clamp(Environment.ProcessorCount / 2, 2, 8));
+                    if (request.Operation == "wake") builder.WithSingleSegment().WithTemperature(0).WithTemperatureInc(0)
+                        .WithPrompt("Eugenio.");
+                    if (request.Operation == "wake") builder.WithAudioContextSize(Math.Max(512, TextPolicy.FastAudioContext(samples.Length)));
+                    else if (request.Mode == "fast") builder.WithAudioContextSize(TextPolicy.FastAudioContext(samples.Length));
+                    using var processor = builder.Build();
                     var sb = new StringBuilder();
                     await foreach (var segment in processor.ProcessAsync(samples)) sb.Append(segment.Text).Append(' ');
                     result = sb.ToString().Trim();

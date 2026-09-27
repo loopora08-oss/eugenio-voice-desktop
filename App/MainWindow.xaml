@@ -16,9 +16,9 @@
       <StackPanel x:Name="ModelPanel">
         <TextBlock Text="01 / MODELLI LOCALI" Foreground="#A8B7C5" FontSize="11" FontWeight="Bold" Margin="0,0,0,8" />
         <TextBlock x:Name="ModelsLabel" Text="Whisper locale + MiniCPM tramite Ollama" />
-        <TextBlock Text="Whisper small resta sul PC. La correzione usa il MiniCPM già installato in Ollama, tramite 127.0.0.1:11434; nessun testo esce dal PC." FontSize="12" Foreground="#A8B7C5" Margin="0,5,0,12" />
+        <TextBlock Text="Whisper small trascrive le frasi; Whisper base riconosce Eugenio con un motore separato. La modalità veloce adatta il contesto audio alla frase. Tutto viene elaborato sul PC." FontSize="12" Foreground="#A8B7C5" Margin="0,5,0,12" />
         <WrapPanel Margin="0,0,0,10">
-          <Button x:Name="DownloadButton" Content="Scarica Whisper small" Click="DownloadModels" />
+          <Button x:Name="DownloadButton" Content="Scarica modelli Whisper" Click="DownloadModels" />
           <Button x:Name="ImportButton" Content="Importa Whisper da disco" Click="ImportModels" />
           <Button x:Name="LoadButton" Content="Verifica modelli" Click="LoadModels" />
           <Button x:Name="CancelDownloadButton" Content="Annulla" Visibility="Collapsed" Click="CancelDownload" />
@@ -36,6 +36,8 @@
         </Grid>
         <TextBlock x:Name="InputLevelLabel" Text="Microfono: in attesa del segnale" FontSize="12" Foreground="#A8B7C5" Margin="0,4,0,0" />
         <TextBlock x:Name="WakeStatusLabel" Text="Dì Eugenio per attivare la dettatura, oppure usa il pulsante microfono sul badge." FontSize="12" Foreground="#A8B7C5" Margin="0,4,0,0" />
+        <TextBlock Text="Trascrizione" Margin="0,14,0,5" />
+        <ComboBox x:Name="SpeedBox"><ComboBoxItem Content="Veloce · contesto adattato alla frase" /><ComboBoxItem Content="Standard · contesto completo" /></ComboBox>
         <TextBlock Text="Stile di scrittura" Margin="0,14,0,5" />
         <ComboBox x:Name="ModeBox">
           <ComboBoxItem Content="Generale · fedele alla voce" Tag="general" />

@@ -2,7 +2,7 @@
 
 App personale Windows x64 per dettare in italiano e inglese, correggere il parlato e inserire il risultato nel campo attivo. Whisper trascrive localmente; la correzione usa il MiniCPM installato in Ollama attraverso `127.0.0.1`. Audio e testo non vengono inviati a servizi cloud. Nessun account o Python richiesto.
 
-**Stato della consegna:** badge mobile con posizione persistente, mascotte pixel art animata, wake word «Eugenio», inserimento dei blocchi dopo le pause e stili/dizionario locali. La versione 1.3.10 è stata compilata e ha superato i test logici e MiniCPM su Windows; prove audio sintetiche italiane e inglesi verificano Whisper → MiniCPM, correzioni di date e negazioni; il microfono Intel del PC è stato aperto e misurato nella sessione Windows normale. Whisper e MiniCPM caricano, e l’inserimento Unicode è stato provato in una finestra di test. La prova finale con la voce dell’utente e negli editor delle chat resta necessaria. I modelli si scaricano o si importano dal pannello. Nessuna protezione di Windows è stata disattivata.
+**Stato della consegna:** versione 1.3.11, badge mobile con mascotte animata e dettatura a blocchi. Il comando Eugenio usa Whisper base separato, lingua italiana e un suggerimento del nome; le finestre audio si sovrappongono e vengono raccolte anche durante il riconoscimento. Whisper small trascrive il dettato, con contesto adattato alla frase nella modalità Veloce. Le prove sintetiche bilingui conservano date e negazioni; i sei casi sintetici di attivazione/non attivazione passano. La verifica con la voce dell’utente e una misura dei falsi risvegli in ambiente reale restano necessarie. Dettagli e limiti delle misure in [docs/performance-1.3.11.md](docs/performance-1.3.11.md).
 
 ## Segnali visivi
 
@@ -30,7 +30,7 @@ Questa è una base tecnica per il deployment gestito, non una dichiarazione di c
 ## Avvio e uso
 
 1. Mantieni insieme **tutta la cartella VoceLocale**, incluse `engines` e `data/models`. Non spostare soltanto l’eseguibile. Usa una cartella locale scrivibile.
-2. Avvia Ollama e verifica che `minicpm-assistente-it:latest` sia nell’elenco dei modelli. Apri `VoceLocale.exe`. Se Whisper manca, premi **Scarica Whisper small** oppure **Importa Whisper da disco** (487 MB). MiniCPM non si scarica nell’app.
+2. Avvia Ollama e verifica che `minicpm-assistente-it:latest` sia nell’elenco dei modelli. Apri `VoceLocale.exe`. Se Whisper manca, premi **Scarica modelli Whisper** oppure **Importa Whisper da disco**: small per dettare (487 MB) e base per il comando Eugenio (148 MB), verificati tramite SHA-256. MiniCPM non si scarica nell’app.
 3. Nelle impostazioni scegli microfono, lingua, stile, modello Ollama e parole del dizionario (una per riga), poi premi **Salva impostazioni**. Il badge resta nella posizione scelta anche al riavvio. Per rilevare «Eugenio», l’app controlla brevi segmenti vocali con Whisper multilingue, interamente sul PC.
 4. Seleziona una casella di testo e dì **Eugenio**. Il badge cambia stato e la dettatura comincia; di’ il testo dopo la parola di attivazione.
 5. Clicca il badge oppure premi la scorciatoia configurata per fermare; **Esc** annulla. Dopo due minuti la registrazione termina automaticamente.

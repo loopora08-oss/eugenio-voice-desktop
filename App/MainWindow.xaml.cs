@@ -16,6 +16,8 @@ public partial class MainWindow : Window
 {
     private Settings _settings = Storage.LoadSettings();
     private readonly EngineClient _whisper = new("WhisperWorker");
+    private readonly EngineClient _wakeWhisper = new("WhisperWorker");
+    private ModelSpec _dictationModel = Models.Whisper, _wakeModel = Models.Whisper;
     private readonly OllamaRewriter _rewrite = new();
     private readonly Recorder _recorder = new();
     private readonly BadgeWindow _badge;
@@ -48,6 +50,7 @@ public partial class MainWindow : Window
         };
         ShortcutBox.Text = _settings.Shortcut;
         LanguageBox.SelectedIndex = _settings.Language switch { "it" => 1, "en" => 2, _ => 0 };
+        SpeedBox.SelectedIndex = _settings.TranscriptionProfile == "accurate" ? 1 : 0;
         ModeBox.SelectedIndex = _settings.Mode switch { "message" => 1, "email" => 2, "code" => 3, _ => 0 };
         RewriteModelBox.Text = _settings.RewriteModel;
         VocabularyBox.Text = string.Join(Environment.NewLine, _settings.Vocabulary ?? []);
@@ -134,13 +137,14 @@ public partial class MainWindow : Window
     internal void ShowSettings() { Show(); WindowState = WindowState.Normal; Activate(); }
     private void StartWakeListener()
     {
-        if (!_ready || _closing || _recording || _busy || _setup != null || _wakeListening) return;
+        if (!_ready || _closing || _recording || _busy || _setup != null || _wakeListening || _pending.Length > 0) return;
         int device = MicrophoneBox.SelectedIndex;
         if (device < 0) { _badge.SetStatus("Seleziona un microfono", "error"); return; }
         try
         {
             _wake.Start(device, RecognizeWakeSegmentAsync);
             _wakeListening = true;
+            WakeStatusLabel.Text = "Ascolto del comando Eugenio · rilevamento locale in italiano";
             _badge.SetStatus("Pronto · dì «Eugenio»");
             _badge.SetListening(true);
             Status("In ascolto · solo sul PC", _shortcutNotice + "Dì Eugenio per iniziare. Clicca il badge o usa la scorciatoia per fermare.");
@@ -152,15 +156,15 @@ public partial class MainWindow : Window
         try
         {
             await Dispatcher.InvokeAsync(() => WakeStatusLabel.Text = "Controllo della parola Eugenio…");
-            var result = await _whisper.RunAsync(new(Guid.NewGuid().ToString(), "transcribe",
-                Storage.ModelPath(Models.Whisper), _settings.Language, audio), token).ConfigureAwait(false);
+            var result = await _wakeWhisper.RunAsync(new(Guid.NewGuid().ToString(), "wake",
+                Storage.ModelPath(_wakeModel), "it", audio), token).ConfigureAwait(false);
             token.ThrowIfCancellationRequested();
             if (!result.Ok || string.IsNullOrWhiteSpace(result.Text) || !TextPolicy.IsWakePhrase(result.Text))
             {
-                await Dispatcher.InvokeAsync(() => WakeStatusLabel.Text = "Eugenio non riconosciuto · usa il pulsante microfono o la scorciatoia");
+                await Dispatcher.InvokeAsync(() => WakeStatusLabel.Text = $"Comando non riconosciuto · ultimo controllo {result.Milliseconds / 1000d:F1} s · riprova Eugenio");
                 return;
             }
-            await Dispatcher.InvokeAsync(() => WakeStatusLabel.Text = "Eugenio riconosciuto · avvio dettatura");
+            await Dispatcher.InvokeAsync(() => WakeStatusLabel.Text = $"Eugenio riconosciuto in {result.Milliseconds / 1000d:F1} s · avvio dettatura");
             await Dispatcher.InvokeAsync(async () => await BeginWakeDictationAsync(audio)).Task.Unwrap().ConfigureAwait(false);
         }
         finally { Array.Clear(audio); }
@@ -212,8 +216,7 @@ public partial class MainWindow : Window
         }
         finally { Array.Clear(continuation); }
     }
-    private static string StripWakePhrase(string text) => System.Text.RegularExpressions.Regex.Replace(
-        text, @"^\s*(?:Eugenio|Hey Eugenio|Ehi Eugenio)[,;:!?.\s-]*", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant).Trim();
+    private static string StripWakePhrase(string text) => TextPolicy.StripWakePhrase(text);
     private void RefreshMicrophoneList()
     {
         try
@@ -226,7 +229,7 @@ public partial class MainWindow : Window
         catch { MicrophoneBox.ItemsSource = Array.Empty<string>(); }
     }
     private void RefreshMicrophones(object sender, RoutedEventArgs e) => RefreshMicrophoneList();
-    private void SaveSettings(object sender, RoutedEventArgs e)
+    private async void SaveSettings(object sender, RoutedEventArgs e)
     {
         if (_busy || _recording || _setup != null) return;
         if (!Hotkey.TryParse(ShortcutBox.Text, out var key))
@@ -237,6 +240,7 @@ public partial class MainWindow : Window
         _shortcutNotice = "";
         var settings = new Settings
         {
+            TranscriptionProfile = SpeedBox.SelectedIndex == 1 ? "accurate" : "fast",
             Shortcut = ShortcutBox.Text.Trim(), Microphone = MicrophoneBox.SelectedItem as string ?? "",
             Language = ((ComboBoxItem)LanguageBox.SelectedItem).Tag.ToString()!,
             Mode = (ModeBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "general",
@@ -245,7 +249,7 @@ public partial class MainWindow : Window
                 .Where(term => term.Length <= 60).Distinct(StringComparer.OrdinalIgnoreCase).Take(40).ToArray(),
             BadgeLeft = _settings.BadgeLeft, BadgeTop = _settings.BadgeTop
         };
-        try { Storage.SaveSettings(settings); _settings = settings; _wake.Stop(); _wakeListening = false; Status("Impostazioni salvate", "Dì Eugenio per iniziare. Clicca il badge o usa la scorciatoia per fermare."); if (_ready) StartWakeListener(); }
+        try { Storage.SaveSettings(settings); _settings = settings; await VerifyModelsAsync(); }
         catch { Status("Impostazioni non salvate", "Sposta la cartella dell’app in una posizione scrivibile."); }
     }
     private async Task VerifyModelsAsync()
@@ -257,15 +261,19 @@ public partial class MainWindow : Window
         SetSetupBusy(true);
         try
         {
-            ModelsLabel.Text = "Verifica Whisper small…";
-            bool whisperValid = await Storage.VerifyAsync(Models.Whisper, Storage.ModelPath(Models.Whisper), setup.Token);
-            ModelsLabel.Text = whisperValid ? "Whisper small pronto · verifica Ollama…" : "Whisper small mancante · importa o scarica il modello.";
+            ModelsLabel.Text = "Verifica dei modelli Whisper…";
+            bool fastValid = await Storage.VerifyAsync(Models.FastWhisper, Storage.ModelPath(Models.FastWhisper), setup.Token);
+            bool smallValid = await Storage.VerifyAsync(Models.Whisper, Storage.ModelPath(Models.Whisper), setup.Token);
+            _dictationModel = smallValid ? Models.Whisper : Models.FastWhisper;
+            _wakeModel = fastValid ? Models.FastWhisper : _dictationModel;
+            bool whisperValid = fastValid || smallValid;
+            ModelsLabel.Text = whisperValid ? $"Dettatura: {_dictationModel.FileName} · comando: {_wakeModel.FileName} · verifica Ollama…" : "Whisper mancante · importa o scarica il modello.";
             var ollamaModels = await _rewrite.GetModelsAsync(setup.Token);
             PopulateRewriteModels(ollamaModels);
             bool rewriteValid = ollamaModels.Contains(_settings.RewriteModel, StringComparer.OrdinalIgnoreCase);
             if (!rewriteValid && RewriteModelBox.SelectedItem is string selected)
                 rewriteValid = ollamaModels.Contains(selected, StringComparer.OrdinalIgnoreCase);
-            ModelsLabel.Text = $"Whisper small {(whisperValid ? "pronto" : "mancante")} · Ollama MiniCPM {(rewriteValid ? "pronto" : "non trovato")}.";
+            ModelsLabel.Text = $"Dettatura {_dictationModel.FileName} · comando {_wakeModel.FileName} · MiniCPM {(rewriteValid ? "pronto" : "non trovato")}";
             if (whisperValid && rewriteValid) await WarmupAsync(setup.Token);
             else if (!whisperValid) Status("Whisper non disponibile", "Importa ggml-small.bin o scaricalo. MiniCPM viene usato da Ollama sul PC.");
             else Status("Modello Ollama non trovato", "Avvia Ollama e seleziona un modello di correzione installato.");
@@ -281,10 +289,12 @@ public partial class MainWindow : Window
         Status("Caricamento dei motori", "Il primo avvio può richiedere tempo. Tutto resta sul PC.");
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
         timeout.CancelAfter(TimeSpan.FromMinutes(5));
-        var a = await _whisper.RunAsync(new(Guid.NewGuid().ToString(), "load", Storage.ModelPath(Models.Whisper)), timeout.Token);
+        var loads = await Task.WhenAll(
+            _whisper.RunAsync(new(Guid.NewGuid().ToString(), "load", Storage.ModelPath(_dictationModel)), timeout.Token),
+            _wakeWhisper.RunAsync(new(Guid.NewGuid().ToString(), "load", Storage.ModelPath(_wakeModel)), timeout.Token));
         var installed = await _rewrite.GetModelsAsync(timeout.Token);
         string rewriteModel = RewriteModelBox.SelectedItem as string ?? _settings.RewriteModel;
-        if (!a.Ok || !installed.Contains(rewriteModel, StringComparer.OrdinalIgnoreCase)) throw new IOException();
+        if (loads.Any(a => !a.Ok) || !installed.Contains(rewriteModel, StringComparer.OrdinalIgnoreCase)) throw new IOException();
         _settings.RewriteModel = rewriteModel;
         _ready = true;
         if (_hotkeyAvailable) Status("Motori pronti", _shortcutNotice + "Avvio del microfono…");
@@ -327,12 +337,14 @@ public partial class MainWindow : Window
         if (_setup != null || _busy || _recording) return;
         using var setup = new CancellationTokenSource(); _setup = setup;
         _ready = false;
+        _wake.Stop(); _wakeListening = false; _badge.SetListening(false);
+        _wakeWhisper.Stop();
         _whisper.Stop();
         SetSetupBusy(true);
         try
         {
             var progress = new Progress<(string, double)>(p => { ProgressLabel.Text = p.Item1; ModelProgress.Value = p.Item2; });
-            foreach (var model in Models.Audio)
+            foreach (var model in new[] { Models.Whisper, Models.FastWhisper })
             {
                 if (await Storage.VerifyAsync(model, Storage.ModelPath(model), setup.Token)) continue;
                 string? source = null;
@@ -347,6 +359,7 @@ public partial class MainWindow : Window
             }
             ModelsLabel.Text = "Whisper locale pronto · verifica MiniCPM in Ollama.";
             ProgressLabel.Text = "Whisper è locale; la riscrittura usa Ollama sul PC.";
+            _dictationModel = Models.Whisper; _wakeModel = Models.FastWhisper;
             await WarmupAsync(setup.Token);
         }
         catch (OperationCanceledException) { Status("Operazione annullata", "I modelli già completati restano disponibili."); }
@@ -372,6 +385,7 @@ public partial class MainWindow : Window
             _session = new CancellationTokenSource();
             _wake.Stop(); _wakeListening = false;
             _badge.SetListening(false);
+            WakeStatusLabel.Text = "Avvio manuale · rilevamento del comando sospeso durante la dettatura";
             _desktop.BeginWatch();
             _target = await Task.Run(DesktopInput.Capture).WaitAsync(TimeSpan.FromSeconds(2), _session.Token);
             if (_target == null) { CancelSession(); Status("Seleziona un campo scrivibile", "Campi protetti, non riconosciuti o app amministrative non sono utilizzabili.", error: true); return; }
@@ -539,7 +553,7 @@ public partial class MainWindow : Window
     private async Task<(string Raw, string? Final, long TranscriptionMs, long RewriteMs)> ProcessBlockAsync(byte[] audio, bool stripWake, CancellationToken token)
     {
         var transcription = await _whisper.RunAsync(new(Guid.NewGuid().ToString(), "transcribe",
-            Storage.ModelPath(Models.Whisper), _settings.Language, audio), token);
+            Storage.ModelPath(_dictationModel), _settings.Language, audio, Mode: _settings.TranscriptionProfile), token);
         if (!transcription.Ok || string.IsNullOrWhiteSpace(transcription.Text)) throw new IOException("Trascrizione non riuscita.");
         string raw = stripWake ? StripWakePhrase(transcription.Text) : transcription.Text.Trim();
         if (string.IsNullOrWhiteSpace(raw)) return ("", "", transcription.Milliseconds, 0);
@@ -626,7 +640,7 @@ public partial class MainWindow : Window
     private void Exit()
     {
         _closing = true; _setup?.Cancel(); CancelSession();
-        _whisper.Dispose(); _rewrite.Dispose(); _desktop?.Dispose();
+        _whisper.Dispose(); _wakeWhisper.Dispose(); _rewrite.Dispose(); _desktop?.Dispose();
         _wake.Dispose(); _tray?.Dispose(); _badge.Close();
         System.Windows.Application.Current.Shutdown();
     }
