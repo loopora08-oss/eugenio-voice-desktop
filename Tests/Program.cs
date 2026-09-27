@@ -30,6 +30,17 @@ Check("soft audio below old peak threshold is accepted", TextPolicy.HasVoice(Ton
 Check("quiet noise is rejected", !TextPolicy.HasVoice(Tone(25)));
 Check("brief click is rejected", !TextPolicy.HasVoice(Tone(2000, 400)));
 Check("soft wake frame is detected", AudioSignal.IsActive(Tone(180, 800)));
+var prefix = new AudioLeadIn(4);
+prefix.Push(new byte[] { 1, 2, 3 }); prefix.Push(new byte[] { 4, 5 });
+using var prefixOutput = new MemoryStream();
+prefix.DrainTo(prefixOutput);
+Check("onset audio retains only the bounded recent prefix", prefixOutput.ToArray().SequenceEqual(new byte[] { 2, 3, 4, 5 }));
+prefixOutput.SetLength(0); prefix.DrainTo(prefixOutput);
+Check("onset buffer is empty after transfer", prefixOutput.Length == 0);
+prefix.Push(new byte[] { 1, 2, 3, 4, 5, 6 }); prefix.DrainTo(prefixOutput);
+Check("oversized onset retains the final samples", prefixOutput.ToArray().SequenceEqual(new byte[] { 3, 4, 5, 6 }));
+prefix.Push(new byte[] { 8, 9 }); prefix.Clear(); prefixOutput.SetLength(0); prefix.DrainTo(prefixOutput);
+Check("cancel clears onset audio", prefixOutput.Length == 0);
 Check("incomplete output rejected", !TextPolicy.TryValidate("Hello", "Hel", true, out _));
 Check("reasoning rejected", !TextPolicy.TryValidate("Hello", "<think>secret</think>Hello", false, out _));
 Check("control tokens rejected", !TextPolicy.TryValidate("Hello", "<|im_start|>Hello", false, out _));

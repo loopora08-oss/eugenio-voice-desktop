@@ -86,6 +86,8 @@ public sealed class BadgeWindow : Window
         labels.Children.Add(title); labels.Children.Add(_state);
         var gear = new Button { Content = "⚙", FontSize = 16, Width = 35, Height = 35, Padding = new Thickness(0), Margin = new Thickness(6, 0, 0, 0), ToolTip = "Impostazioni" };
         gear.Click += (_, _) => openSettings();
+        var microphone = new Button { Content = "🎙", Width = 30, Height = 35, FontSize = 16, Padding = new Thickness(0), Margin = new Thickness(4, 0, 0, 0), Focusable = false, ToolTip = "Avvia / termina dettatura nel campo selezionato" };
+        microphone.Click += async (_, _) => await _stop();
         var grid = new Grid();
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -97,6 +99,8 @@ public sealed class BadgeWindow : Window
         Grid.SetColumn(meter, 2); grid.Children.Add(meter);
         Grid.SetColumn(labels, 3); grid.Children.Add(labels);
         Grid.SetColumn(gear, 4); grid.Children.Add(gear);
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        Grid.SetColumn(microphone, 4); Grid.SetColumn(gear, 5); grid.Children.Add(microphone);
         var surface = new Border { Background = Brush("#172229"), BorderBrush = Brush("#34444D"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(16), Padding = new Thickness(12, 4, 10, 4), Child = grid };
         surface.PreviewMouseLeftButtonDown += async (_, e) =>
         {

@@ -11,23 +11,27 @@ public sealed class VoiceWakeListener : IDisposable
     private WaveInEvent? _input;
     private MemoryStream? _phrase;
     private MemoryStream? _processingAudio;
-    private Func<byte[], Task>? _recognize;
+    private Func<byte[], CancellationToken, Task>? _recognize;
+    private CancellationTokenSource? _recognitionSession;
+    private readonly AudioLeadIn _leadIn = new();
     private int _silenceBytes;
     private int _generation;
     private bool _speaking, _processing, _disposed, _voiceVisible;
     private const int SilenceLimit = 16000 * 2 * 7 / 10;
-    private const int PhraseLimit = 16000 * 2 * 8;
+    private const int PhraseLimit = 16000 * 2 * 3;
     private const int ProcessingAudioLimit = 16000 * 2 * 120;
     public event Action? Failed;
     public event Action<bool>? VoiceActivityChanged;
     public event Action<double>? InputLevelChanged;
 
-    public void Start(int device, Func<byte[], Task> recognize)
+    public void Start(int device, Func<byte[], CancellationToken, Task> recognize)
     {
         Stop();
         lock (_gate)
         {
             _disposed = false; _recognize = recognize;
+            _recognitionSession = new CancellationTokenSource();
+            _leadIn.Clear();
             _phrase = new MemoryStream(PhraseLimit); _silenceBytes = 0; _speaking = _processing = _voiceVisible = false;
             _processingAudio = new MemoryStream();
             _input = new WaveInEvent { DeviceNumber = device, WaveFormat = new WaveFormat(16000, 16, 1), BufferMilliseconds = 50 };
@@ -60,8 +64,13 @@ public sealed class VoiceWakeListener : IDisposable
                 return;
             }
             bool active = AudioSignal.IsActive(e.Buffer.AsSpan(0, bytes));
-            if (active) { _speaking = true; _silenceBytes = 0; }
+            if (active)
+            {
+                if (!_speaking) _leadIn.DrainTo(_phrase);
+                _speaking = true; _silenceBytes = 0;
+            }
             else if (_speaking) _silenceBytes += bytes;
+            else _leadIn.Push(e.Buffer.AsSpan(0, bytes));
             if (active != _voiceVisible && (active || _silenceBytes >= 16000 * 2 / 5))
             {
                 _voiceVisible = active;
@@ -86,23 +95,38 @@ public sealed class VoiceWakeListener : IDisposable
     {
         try
         {
-            Func<byte[], Task>? recognize;
-            lock (_gate) recognize = generation == _generation ? _recognize : null;
-            if (recognize != null) await recognize(segment).ConfigureAwait(false);
+            Func<byte[], CancellationToken, Task>? recognize;
+            CancellationToken token;
+            lock (_gate)
+            {
+                recognize = generation == _generation ? _recognize : null;
+                token = _recognitionSession?.Token ?? new CancellationToken(true);
+            }
+            if (recognize != null) await recognize(segment, token).ConfigureAwait(false);
         }
-        catch { Failed?.Invoke(); }
+        catch (OperationCanceledException) { }
+        catch { lock (_gate) { if (generation == _generation && !_disposed) Failed?.Invoke(); } }
         finally
         {
             Array.Clear(segment);
+            byte[]? next = null;
             lock (_gate)
             {
                 if (generation == _generation && !_disposed)
                 {
-                    // An unrecognized phrase must not be prepended to a later wake session.
-                    if (_processingAudio != null) { Array.Clear(_processingAudio.GetBuffer()); _processingAudio.SetLength(0); }
-                    _processing = false;
+                    // A wake word spoken during inference must also be checked. Keep only
+                    // the recent bounded window, never concatenate it with an older phrase.
+                    if (_processingAudio != null)
+                    {
+                        int length = (int)_processingAudio.Length;
+                        var recent = _processingAudio.GetBuffer().AsSpan(Math.Max(0, length - PhraseLimit), Math.Min(length, PhraseLimit));
+                        if (TextPolicy.HasVoice(recent)) next = recent.ToArray();
+                        Array.Clear(_processingAudio.GetBuffer()); _processingAudio.SetLength(0);
+                    }
+                    _processing = next != null;
                 }
             }
+            if (next != null) _ = ProcessAsync(next, generation);
         }
     }
 
@@ -115,9 +139,12 @@ public sealed class VoiceWakeListener : IDisposable
     {
         WaveInEvent? input;
         byte[] audio = [];
+        CancellationTokenSource? recognitionSession;
         lock (_gate)
         {
             _disposed = true; _recognize = null;
+            recognitionSession = _recognitionSession; _recognitionSession = null;
+            _leadIn.Clear();
             _generation++;
             input = _input; _input = null;
             if (_phrase != null) { Array.Clear(_phrase.GetBuffer()); _phrase.Dispose(); _phrase = null; }
@@ -130,6 +157,7 @@ public sealed class VoiceWakeListener : IDisposable
             _voiceVisible = false;
             _speaking = false; _processing = false; _silenceBytes = 0;
         }
+        recognitionSession?.Cancel(); recognitionSession?.Dispose();
         if (input != null) { try { input.StopRecording(); } catch { } input.Dispose(); }
         return audio;
     }

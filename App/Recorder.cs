@@ -11,6 +11,7 @@ public sealed class Recorder : IDisposable
     private MemoryStream? _segment;
     private TaskCompletionSource<byte[]>? _finished;
     private readonly object _lock = new();
+    private readonly AudioLeadIn _leadIn = new();
     private bool _stopping;
     private bool _discard;
     private bool _segmentSpeaking;
@@ -30,6 +31,7 @@ public sealed class Recorder : IDisposable
     public void Start(int device, ReadOnlyMemory<byte> preRoll = default)
     {
         _discard = false;
+        _leadIn.Clear();
         _stopping = false;
         _buffer = new MemoryStream(LimitBytes);
         _segment = new MemoryStream(); _segmentSpeaking = _voiceVisible = false; _silenceBytes = 0;
@@ -59,8 +61,13 @@ public sealed class Recorder : IDisposable
                 _buffer.Write(e.Buffer, 0, Math.Min(e.BytesRecorded, remaining));
                 int bytes = Math.Min(e.BytesRecorded, remaining) & ~1;
                 bool active = AudioSignal.IsActive(e.Buffer.AsSpan(0, bytes));
-                if (active) { _segmentSpeaking = true; _silenceBytes = 0; }
+                if (active)
+                {
+                    if (!_segmentSpeaking && _segment != null) _leadIn.DrainTo(_segment);
+                    _segmentSpeaking = true; _silenceBytes = 0;
+                }
                 else if (_segmentSpeaking) _silenceBytes += bytes;
+                else _leadIn.Push(e.Buffer.AsSpan(0, bytes));
                 if (active != _voiceVisible && (active || _silenceBytes >= 16000 * 2 / 4))
                 {
                     _voiceVisible = active;
@@ -119,6 +126,7 @@ public sealed class Recorder : IDisposable
     }
     private void Wipe()
     {
+        _leadIn.Clear();
         if (_buffer != null) { Array.Clear(_buffer.GetBuffer()); _buffer.Dispose(); _buffer = null; }
         if (_segment != null) { Array.Clear(_segment.GetBuffer()); _segment.Dispose(); _segment = null; }
         _voiceVisible = false;

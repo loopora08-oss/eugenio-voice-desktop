@@ -39,7 +39,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        _badge = new BadgeWindow(ShowSettings, async () => await StopRecordingAsync());
+        _badge = new BadgeWindow(ShowSettings, ToggleAsync);
         _badge.RestorePosition(_settings.BadgeLeft, _settings.BadgeTop);
         _badge.PositionChanged += (left, top) =>
         {
@@ -147,13 +147,20 @@ public partial class MainWindow : Window
         }
         catch { _wakeListening = false; _badge.SetListening(false); Status("Microfono non disponibile", "Non riesco ad aprire il microfono selezionato.", error: true); }
     }
-    private async Task RecognizeWakeSegmentAsync(byte[] audio)
+    private async Task RecognizeWakeSegmentAsync(byte[] audio, CancellationToken token)
     {
         try
         {
+            await Dispatcher.InvokeAsync(() => WakeStatusLabel.Text = "Controllo della parola Eugenio…");
             var result = await _whisper.RunAsync(new(Guid.NewGuid().ToString(), "transcribe",
-                Storage.ModelPath(Models.Whisper), _settings.Language, audio), CancellationToken.None).ConfigureAwait(false);
-            if (!result.Ok || string.IsNullOrWhiteSpace(result.Text) || !TextPolicy.IsWakePhrase(result.Text)) return;
+                Storage.ModelPath(Models.Whisper), _settings.Language, audio), token).ConfigureAwait(false);
+            token.ThrowIfCancellationRequested();
+            if (!result.Ok || string.IsNullOrWhiteSpace(result.Text) || !TextPolicy.IsWakePhrase(result.Text))
+            {
+                await Dispatcher.InvokeAsync(() => WakeStatusLabel.Text = "Eugenio non riconosciuto · usa il pulsante microfono o la scorciatoia");
+                return;
+            }
+            await Dispatcher.InvokeAsync(() => WakeStatusLabel.Text = "Eugenio riconosciuto · avvio dettatura");
             await Dispatcher.InvokeAsync(async () => await BeginWakeDictationAsync(audio)).Task.Unwrap().ConfigureAwait(false);
         }
         finally { Array.Clear(audio); }
