@@ -535,7 +535,7 @@ public partial class MainWindow : Window
         var channel = _segmentChannel;
         try
         {
-            await SpeechBlockQueue.RunPreparedAsync(reader, TimeSpan.FromMilliseconds(1500), TranscribeBlockAsync, ProcessSegmentAsync, token);
+            await SpeechBlockQueue.RunPreparedAsync(reader, TimeSpan.FromMilliseconds(1500), TranscribeBlockAsync, ProcessSegmentAsync, token, () => _recorder.HasPendingSpeech);
         }
         catch
         {

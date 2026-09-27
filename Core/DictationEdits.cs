@@ -22,7 +22,9 @@ public static class DictationEdits
         {
             string before = edited;
             edited = Days.Replace(edited, "${new}");
-            edited = Numbers.Replace(edited, "${new}");
+            edited = Numbers.Replace(edited, m =>
+                Regex.IsMatch(edited[..m.Index], @"(?:[-−/]|\b(?:meno|minus|negative)\s+)\s*$", RegexOptions.IgnoreCase)
+                    ? m.Value : m.Groups["new"].Value);
             // A recipient correction must preserve the same preposition on both sides.
             var names = new Regex(@"\b(?<pre>a|to)\s+(?<old>[\p{Lu}][\p{L}'’]+)\s*[,.;:]\s*" + Marker + @"\k<pre>\s+(?<new>[\p{Lu}][\p{L}'’]+)\b", RegexOptions.CultureInvariant);
             edited = names.Replace(edited, m => $"{m.Groups["pre"].Value} {m.Groups["new"].Value}");

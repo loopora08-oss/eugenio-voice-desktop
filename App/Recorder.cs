@@ -26,6 +26,7 @@ public sealed class Recorder : IDisposable
     public event Action<double>? InputLevelChanged;
     public event Action? LimitReached;
     public event Action? DeviceFailed;
+    public bool HasPendingSpeech { get { lock (_lock) return _segmentSpeaking; } }
     public static string[] Microphones() => Enumerable.Range(0, WaveIn.DeviceCount)
         .Select(i => WaveIn.GetCapabilities(i).ProductName).ToArray();
     public void Start(int device, ReadOnlyMemory<byte> preRoll = default)

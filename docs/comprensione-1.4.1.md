@@ -6,6 +6,7 @@
 - Equilibrata usa base fino a sei secondi e small per blocchi italiani più lunghi. Dopo un risultato inglese il blocco successivo può usare base, continuando a riconoscere automaticamente la lingua. Sono disponibili velocità e precisione, senza traduzione automatica.
 - Il worker conserva al massimo due modelli verificati e non li ricarica continuamente. Il dizionario viene fornito anche alle frasi lunghe.
 - ASR e finestra di ripensamento di 1,5 s si sovrappongono. Più segmenti consecutivi sono riuniti prima dell'inserimento; il risultato preliminare non viene inserito se arriva una correzione.
+- Se riprendi a parlare prima della conferma, l'inserimento attende che il nuovo segmento sia completato. Quantità negative o espresse con meno/minus restano al modello: il percorso immediato non sostituisce soltanto le cifre lasciando un segno errato.
 - Sostituzioni esplicite di date, quantità e destinatari con la stessa preposizione sono applicate letteralmente. Ambiguità e testo tra virgolette restano al modello. MiniCPM riceve il blocco completo in una chiamata, con limiti di output effettivi e quattro thread, e viene riscaldato con una frase sintetica pubblica. La modalità codice conserva la revisione del modello.
 - I controlli impediscono cambiamenti evidenti di nomi, numeri, giorni e domande in frasi senza ripensamenti. Sono conservativi e non provano l'equivalenza semantica universale.
 

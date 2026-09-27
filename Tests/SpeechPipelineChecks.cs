@@ -26,6 +26,15 @@ internal static class SpeechPipelineChecks
         check("all successive corrections are recognized as one confirmed block", seen.SequenceEqual(new[] { "1,2,3" }));
         check("merged preparation clears all source buffers", a[0] == 0 && b[0] == 0 && c[0] == 0);
 
+        var resumed = Channel.CreateUnbounded<byte[]>(); bool speechPending = true; var resumedText = new List<string>();
+        var resumedRun = SpeechBlockQueue.RunPreparedAsync(resumed.Reader, TimeSpan.FromMilliseconds(60),
+            (audio, token) => Task.FromResult(string.Join(',', audio)),
+            (_, result, _) => { resumedText.Add(result); return Task.CompletedTask; }, CancellationToken.None, () => speechPending);
+        resumed.Writer.TryWrite(new byte[] { 4 }); await Task.Delay(150);
+        check("unfinished resumed speech cannot publish an obsolete correction", resumedText.Count == 0);
+        resumed.Writer.TryWrite(new byte[] { 5 }); speechPending = false; resumed.Writer.TryComplete(); await resumedRun;
+        check("resumed correction is included before the single insertion", resumedText.SequenceEqual(new[] { "4,5" }));
+
         var cancelling = Channel.CreateUnbounded<byte[]>(); using var cancel = new CancellationTokenSource();
         var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously); byte[] discarded = [9];
         var cancellationRun = SpeechBlockQueue.RunPreparedAsync(cancelling.Reader, TimeSpan.FromSeconds(1),

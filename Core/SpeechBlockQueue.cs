@@ -7,7 +7,7 @@ public static class SpeechBlockQueue
 {
     public static async Task RunPreparedAsync<T>(ChannelReader<byte[]> reader, TimeSpan correctionWindow,
         Func<byte[], CancellationToken, Task<T>> prepare,
-        Func<byte[], T, CancellationToken, Task> process, CancellationToken token)
+        Func<byte[], T, CancellationToken, Task> process, CancellationToken token, Func<bool>? hasPendingSpeech = null)
     {
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(correctionWindow, TimeSpan.Zero);
         try
@@ -22,17 +22,20 @@ public static class SpeechBlockQueue
                 {
                     // ASR starts now; publication still waits for possible self-correction.
                     prepared = prepare(first, token);
-                    using var window = CancellationTokenSource.CreateLinkedTokenSource(token);
-                    window.CancelAfter(correctionWindow);
-                    try
+                    bool waiting = true;
+                    while (waiting)
                     {
-                        while (await reader.WaitToReadAsync(window.Token))
+                        using var window = CancellationTokenSource.CreateLinkedTokenSource(token);
+                        window.CancelAfter(correctionWindow);
+                        try
                         {
-                            while (reader.TryRead(out var next)) parts.Add(next);
-                            window.CancelAfter(correctionWindow);
+                            if (await reader.WaitToReadAsync(window.Token))
+                                while (reader.TryRead(out var next)) parts.Add(next);
+                            else waiting = false;
                         }
+                        catch (OperationCanceledException) when (!token.IsCancellationRequested)
+                        { waiting = hasPendingSpeech?.Invoke() == true; }
                     }
-                    catch (OperationCanceledException) when (!token.IsCancellationRequested) { }
                     T result;
                     if (parts.Count == 1) result = await prepared;
                     else

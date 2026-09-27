@@ -35,6 +35,7 @@ Check("English correction preserves negation in next sentence", DictationEdits.T
 Check("successive explicit corrections use the final day", DictationEdits.TryResolve("Arrivo martedì, no, giovedì, scusa, venerdì.", null, out var finalDay) && finalDay == "Arrivo venerdì.");
 Check("ordinary negation and unclear corrections do not use direct edits", !DictationEdits.TryResolve("Non voglio annullare.", null, out _) && !DictationEdits.TryResolve("Era bello, no, diverso.", null, out _));
 Check("quoted correction text is left for contextual editing", !DictationEdits.TryResolve("Scrivi letteralmente \"martedì, no, giovedì\".", null, out _));
+Check("negative quantities are never partially replaced by the fast editor", !DictationEdits.TryResolve("Sono meno 50, scusa, 15 euro.", null, out _) && !DictationEdits.TryResolve("Sono -50, scusa, 15 euro.", null, out _));
 Check("English speech keeps the fast model after detection", SpeechProfile.Choose("adaptive", 10 * 32000, true, true, "en") == Models.FastWhisper);
 using (var boundary = new MeetingAudioSegmenter())
 {
