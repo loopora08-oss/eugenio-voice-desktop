@@ -33,6 +33,8 @@ Il nuovo `engines/WhisperWorker/WhisperWorker.exe` 1.4.1 è rifiutato da Windows
 
 La combinazione compatibile supera dieci prove Whisper locali (cinque frasi critiche sintetiche, intere e a blocchi): zero errori su 108 parole di riferimento, tempo ASR aggregato 12,937 s. Report in `verifiche-1.4.1/compatibile-critici.json`. Questo verifica l'inferenza effettiva con il motore installato; non misura la latenza del microfono né la precisione su voce umana.
 
+La verifica dall'interfaccia aggiornata apre il microfono, produce otto blocchi in 38 secondi e completa l'arresto con microfono spento. Una frase sintetica riprodotta dagli altoparlanti non compare nei risultati: la prova conferma il funzionamento della cattura e della coda, ma non l'accuratezza del percorso altoparlanti/microfono o della voce dell'utente. Il contenuto della prova microfono resta esclusivamente in memoria, senza esportazione.
+
 La build Windows della revisione `c3ee88b` è riuscita su GitHub: [run 36324739249](https://github.com/loopora08-oss/eugenio-voice-desktop/actions/runs/36324739249). Compila i tre eseguibili e il nuovo harness, ed esegue i 126 controlli logici. Non usa il microfono né i modelli installati sul PC e non sostituisce il requisito di firma locale.
 
 Le prove da 61 minuti della 1.4.0 restano separate: 732 blocchi, nessuna perdita, p95 13,37 s con traduzione disattivata. Non sono una prova da un'ora della nuova selezione adattiva. I contenuti di prova sono inventati; audio personale e trascrizioni reali non sono esportati nei report.
