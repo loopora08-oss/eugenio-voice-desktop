@@ -32,6 +32,9 @@ while (await Console.In.ReadLineAsync() is { } line)
                 try
                 {
                     for (int i = 0; i < samples.Length; i++) samples[i] = (short)(pcm[2 * i] | pcm[2 * i + 1] << 8) / 32768f;
+                    float peak = samples.Select(Math.Abs).DefaultIfEmpty(0).Max();
+                    float gain = peak > 0 ? Math.Clamp(.8f / peak, 1, 12) : 1;
+                    if (gain > 1) for (int i = 0; i < samples.Length; i++) samples[i] *= gain;
                     using var processor = factory!.CreateBuilder().WithLanguage(request.Language)
                         .WithThreads(Math.Clamp(Environment.ProcessorCount / 2, 2, 8)).Build();
                     var sb = new StringBuilder();

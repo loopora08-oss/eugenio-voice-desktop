@@ -54,6 +54,8 @@ public partial class MainWindow : Window
         RefreshMicrophoneList();
         _recorder.LimitReached += () => Dispatcher.BeginInvoke(new Action(async () => await StopRecordingAsync()));
         _recorder.SegmentReady += OnSegmentReady;
+        _recorder.InputLevelChanged += OnInputLevel;
+        _wake.InputLevelChanged += OnInputLevel;
         _recorder.VoiceActivityChanged += detected => Dispatcher.BeginInvoke(new Action(() => _badge.SetVoiceDetected(detected)));
         _recorder.DeviceFailed += () => Dispatcher.BeginInvoke(new Action(() => { CancelSession(); Status("Microfono non disponibile", "Ricollega il microfono e riprova."); }));
         RefreshRewriteModelsButton.Click += async (_, _) => await RefreshRewriteModelsAsync();
@@ -110,6 +112,13 @@ public partial class MainWindow : Window
         _tray.ContextMenuStrip.Items.Add("Annulla dettatura", null, (_, _) => CancelSession());
         _tray.ContextMenuStrip.Items.Add("Esci", null, (_, _) => Exit());
     }
+    private void OnInputLevel(double rms) => Dispatcher.BeginInvoke(new Action(() =>
+    {
+        _badge.SetInputLevel(rms);
+        InputLevelLabel.Text = rms >= AudioSignal.MinimumSpeechRms ? "Microfono: segnale vocale ricevuto"
+            : rms > 10 ? "Microfono: segnale debole · avvicinati o verifica il microfono selezionato"
+            : "Microfono: silenzio";
+    }));
     private void Status(string title, string detail, bool error = false)
     {
         StatusLabel.Text = title; StatusDetail.Text = detail;

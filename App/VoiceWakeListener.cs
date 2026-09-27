@@ -1,5 +1,6 @@
 using System.IO;
 using NAudio.Wave;
+using VoceLocale.Core;
 
 namespace VoceLocale;
 
@@ -19,6 +20,7 @@ public sealed class VoiceWakeListener : IDisposable
     private const int ProcessingAudioLimit = 16000 * 2 * 120;
     public event Action? Failed;
     public event Action<bool>? VoiceActivityChanged;
+    public event Action<double>? InputLevelChanged;
 
     public void Start(int device, Func<byte[], Task> recognize)
     {
@@ -38,6 +40,7 @@ public sealed class VoiceWakeListener : IDisposable
 
     private void OnData(object? sender, WaveInEventArgs e)
     {
+        InputLevelChanged?.Invoke(AudioSignal.Rms(e.Buffer.AsSpan(0, e.BytesRecorded)));
         byte[]? segment = null;
         int generation = 0;
         bool? voiceChanged = null;
@@ -56,13 +59,7 @@ public sealed class VoiceWakeListener : IDisposable
                 Array.Clear(e.Buffer);
                 return;
             }
-            int voiced = 0;
-            for (int i = 0; i < bytes; i += 2)
-            {
-                short sample = (short)(e.Buffer[i] | (e.Buffer[i + 1] << 8));
-                if (Math.Abs((int)sample) > 320) voiced++;
-            }
-            bool active = voiced > bytes / 4;
+            bool active = AudioSignal.IsActive(e.Buffer.AsSpan(0, bytes));
             if (active) { _speaking = true; _silenceBytes = 0; }
             else if (_speaking) _silenceBytes += bytes;
             if (active != _voiceVisible && (active || _silenceBytes >= 16000 * 2 / 5))

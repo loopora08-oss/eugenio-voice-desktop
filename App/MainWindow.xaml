@@ -34,6 +34,7 @@
           <StackPanel><TextBlock Text="Microfono" /><ComboBox x:Name="MicrophoneBox" /><Button Content="Aggiorna microfoni" Click="RefreshMicrophones" HorizontalAlignment="Left" /></StackPanel>
           <StackPanel Grid.Column="2"><TextBlock Text="Lingua" /><ComboBox x:Name="LanguageBox"><ComboBoxItem Content="Automatico · italiano / inglese" Tag="auto" /><ComboBoxItem Content="Italiano" Tag="it" /><ComboBoxItem Content="English" Tag="en" /></ComboBox><TextBlock Text="Mantiene la lingua parlata. Non traduce." FontSize="12" Foreground="#A8B7C5" /></StackPanel>
         </Grid>
+        <TextBlock x:Name="InputLevelLabel" Text="Microfono: in attesa del segnale" FontSize="12" Foreground="#A8B7C5" Margin="0,4,0,0" />
         <TextBlock Text="Stile di scrittura" Margin="0,14,0,5" />
         <ComboBox x:Name="ModeBox">
           <ComboBoxItem Content="Generale · fedele alla voce" Tag="general" />

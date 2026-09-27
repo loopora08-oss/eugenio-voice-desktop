@@ -221,10 +221,10 @@ public static class TextPolicy
     {
         // Conservative energy gate: reject silence, not semantic content. Require 120 ms activity.
         int active = 0;
-        for (int i = 0; i + 1 < pcm.Length; i += 2)
+        for (int i = 0; i + 1 < pcm.Length; i += 1600)
         {
-            short sample = (short)(pcm[i] | (pcm[i + 1] << 8));
-            if (Math.Abs((int)sample) > 250) active++;
+            var frame = pcm.Slice(i, Math.Min(1600, pcm.Length - i));
+            if (AudioSignal.IsActive(frame)) active += frame.Length / 2;
         }
         return active >= 1920;
     }

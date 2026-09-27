@@ -16,6 +16,20 @@ Check("reject system key", !Hotkey.TryParse("Ctrl+Alt+Delete", out _));
 Check("silence rejected", !TextPolicy.HasVoice(new byte[16000 * 2]));
 var activity = new byte[16000 * 2]; for (int i = 0; i < activity.Length; i += 2) { activity[i] = 0x10; activity[i + 1] = 0x04; }
 Check("active audio accepted", TextPolicy.HasVoice(activity));
+byte[] Tone(int amplitude, int samples = 8000)
+{
+    var pcm = new byte[samples * 2];
+    for (int i = 0; i < samples; i++)
+    {
+        short value = (short)(amplitude * Math.Sin(2 * Math.PI * 220 * i / 16000));
+        pcm[2 * i] = (byte)value; pcm[2 * i + 1] = (byte)(value >> 8);
+    }
+    return pcm;
+}
+Check("soft audio below old peak threshold is accepted", TextPolicy.HasVoice(Tone(180)));
+Check("quiet noise is rejected", !TextPolicy.HasVoice(Tone(25)));
+Check("brief click is rejected", !TextPolicy.HasVoice(Tone(2000, 400)));
+Check("soft wake frame is detected", AudioSignal.IsActive(Tone(180, 800)));
 Check("incomplete output rejected", !TextPolicy.TryValidate("Hello", "Hel", true, out _));
 Check("reasoning rejected", !TextPolicy.TryValidate("Hello", "<think>secret</think>Hello", false, out _));
 Check("control tokens rejected", !TextPolicy.TryValidate("Hello", "<|im_start|>Hello", false, out _));

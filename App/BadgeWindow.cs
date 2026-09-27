@@ -23,6 +23,8 @@ public sealed class BadgeWindow : Window
     private bool _sessionActive;
     private bool _listening;
     private bool _voiceDetected;
+    private double _inputLevel;
+    private long _inputAt;
     private string _mode = "ready";
     private int _animationStep;
     private int _mascotFrame;
@@ -179,10 +181,17 @@ public sealed class BadgeWindow : Window
         }
     }
 
+    public void SetInputLevel(double rms)
+    {
+        _inputLevel = rms < 10 ? 0 : Math.Clamp(Math.Log10(1 + rms / 20) / 1.6, 0, 1);
+        _inputAt = Environment.TickCount64;
+    }
+
     private void Animate()
     {
         _animationStep++;
-        bool active = _mode is "recording" or "processing" || _voiceDetected;
+        double level = Environment.TickCount64 - _inputAt < 500 ? _inputLevel : 0;
+        bool active = _mode == "processing" || level > .05;
         if (_mode is "recording" or "processing")
         {
             if (_wakeTransitionTicks > 0)
@@ -203,7 +212,8 @@ public sealed class BadgeWindow : Window
         }
         for (int i = 0; i < _bars.Length; i++)
         {
-            double wave = active ? .65 + Math.Abs(Math.Sin((_animationStep * .72) + i * 1.12)) * 2.6 : 1;
+            double wave = _mode == "processing" ? .65 + Math.Abs(Math.Sin((_animationStep * .72) + i * 1.12)) * 2.6
+                : .35 + level * (1.2 + Math.Abs(Math.Sin((_animationStep * .72) + i * 1.12)) * 2.6);
             ((ScaleTransform)_bars[i].RenderTransform).ScaleY = wave;
             _bars[i].Opacity = active ? .95 : _listening ? .35 : .15;
         }

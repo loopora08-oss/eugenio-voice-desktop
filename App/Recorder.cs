@@ -22,6 +22,7 @@ public sealed class Recorder : IDisposable
     private const int SegmentMinBytes = 3200;
     public event Action<byte[]>? SegmentReady;
     public event Action<bool>? VoiceActivityChanged;
+    public event Action<double>? InputLevelChanged;
     public event Action? LimitReached;
     public event Action? DeviceFailed;
     public static string[] Microphones() => Enumerable.Range(0, WaveIn.DeviceCount)
@@ -48,6 +49,7 @@ public sealed class Recorder : IDisposable
         _input = new WaveInEvent { DeviceNumber = device, WaveFormat = new WaveFormat(16000, 16, 1), BufferMilliseconds = 50 };
         _input.DataAvailable += (_, e) =>
         {
+            InputLevelChanged?.Invoke(AudioSignal.Rms(e.Buffer.AsSpan(0, e.BytesRecorded)));
             bool limit = false;
             bool? voiceChanged = null;
             lock (_lock)
@@ -56,13 +58,7 @@ public sealed class Recorder : IDisposable
                 int remaining = LimitBytes - (int)_buffer.Length;
                 _buffer.Write(e.Buffer, 0, Math.Min(e.BytesRecorded, remaining));
                 int bytes = Math.Min(e.BytesRecorded, remaining) & ~1;
-                int voiced = 0;
-                for (int i = 0; i < bytes; i += 2)
-                {
-                    short sample = (short)(e.Buffer[i] | (e.Buffer[i + 1] << 8));
-                    if (Math.Abs((int)sample) > 320) voiced++;
-                }
-                bool active = bytes > 0 && voiced > bytes / 8;
+                bool active = AudioSignal.IsActive(e.Buffer.AsSpan(0, bytes));
                 if (active) { _segmentSpeaking = true; _silenceBytes = 0; }
                 else if (_segmentSpeaking) _silenceBytes += bytes;
                 if (active != _voiceVisible && (active || _silenceBytes >= 16000 * 2 / 4))
