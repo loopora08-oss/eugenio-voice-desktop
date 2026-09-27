@@ -32,6 +32,7 @@ public partial class MainWindow : Window
     private Task? _segmentWorker;
     private int _segmentsEmitted, _insertedBlocks;
     private string _segmentFailureText = "";
+    private string _segmentFailureReason = "";
     private bool _ready, _busy, _recording, _closing, _recoveryArmed, _manualOnly, _hotkeyAvailable, _wakeListening, _initialLoadStarted;
     private string _shortcutNotice = "";
 
@@ -155,7 +156,7 @@ public partial class MainWindow : Window
         {
             _busy = true;
             _session = new CancellationTokenSource();
-            _desktop?.BeginWatch();
+            _desktop.BeginWatch();
             _target = await Task.Run(DesktopInput.Capture).WaitAsync(TimeSpan.FromSeconds(2), _session.Token);
             if (_target == null)
             {
@@ -166,6 +167,7 @@ public partial class MainWindow : Window
             }
             int device = MicrophoneBox.SelectedIndex;
             if (device < 0) throw new IOException();
+            _desktop.TrackTarget(_target);
             continuation = _wake.StopAndTakeProcessingAudio();
             _wakeListening = false;
             _badge.SetListening(false);
@@ -357,6 +359,7 @@ public partial class MainWindow : Window
             _desktop.BeginWatch();
             _target = await Task.Run(DesktopInput.Capture).WaitAsync(TimeSpan.FromSeconds(2), _session.Token);
             if (_target == null) { CancelSession(); Status("Seleziona un campo scrivibile", "Campi protetti, non riconosciuti o app amministrative non sono utilizzabili.", error: true); return; }
+            _desktop.TrackTarget(_target);
             int device = MicrophoneBox.SelectedIndex;
             if (device < 0) throw new IOException();
             BeginSegmentPipeline(_session.Token);
@@ -428,6 +431,7 @@ public partial class MainWindow : Window
     {
         _segmentsEmitted = _insertedBlocks = 0;
         _segmentFailureText = "";
+        _segmentFailureReason = "";
         _segmentChannel = Channel.CreateUnbounded<byte[]>(new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
         _segmentWorker = ProcessSegmentQueueAsync(_segmentChannel.Reader, token);
         _ = _segmentWorker.ContinueWith(task => _ = task.Exception,
@@ -443,15 +447,20 @@ public partial class MainWindow : Window
 
     private async Task ProcessSegmentQueueAsync(ChannelReader<byte[]> reader, CancellationToken token)
     {
+        var session = _session;
+        var channel = _segmentChannel;
         try
         {
             await SpeechBlockQueue.RunAsync(reader, TimeSpan.FromMilliseconds(1500), ProcessSegmentAsync, token);
         }
         catch
         {
-            _segmentChannel?.Writer.TryComplete();
+            channel?.Writer.TryComplete();
             if (!token.IsCancellationRequested)
-                _ = Dispatcher.BeginInvoke(new Action(async () => await StopAfterSegmentErrorAsync()));
+                _ = Dispatcher.BeginInvoke(new Action(async () =>
+                {
+                    if (ReferenceEquals(_session, session)) await StopAfterSegmentErrorAsync();
+                }));
             throw;
         }
     }
@@ -467,7 +476,7 @@ public partial class MainWindow : Window
         }
         catch { _recorder.Dispose(); }
         if (_segmentFailureText.Length > 0)
-            Recover(_segmentFailureText, $"La destinazione o un blocco non è più disponibile. Questo blocco è trattenuto; {_insertedBlocks} blocchi precedenti potrebbero essere già stati inseriti.", _insertedBlocks > 0);
+            Recover(_segmentFailureText, $"{_segmentFailureReason} Questo blocco è trattenuto; {_insertedBlocks} blocchi precedenti sono già stati inseriti.", true);
         else
         {
             FinishSession();
@@ -482,6 +491,7 @@ public partial class MainWindow : Window
         if (output.Final == null)
         {
             _segmentFailureText = output.Raw;
+            _segmentFailureReason = "MiniCPM non ha prodotto una correzione valida. Verifica la trascrizione originale prima di inserirla.";
             throw new InvalidDataException("Correzione non riuscita.");
         }
         if (!string.IsNullOrWhiteSpace(output.Final)) await InsertSegmentAsync(output.Final, token);
@@ -497,12 +507,14 @@ public partial class MainWindow : Window
         if (_desktop == null || _desktop.Changed || _target == null)
         {
             _segmentFailureText = text;
+            _segmentFailureReason = "La finestra, il campo o il cursore di destinazione è cambiato.";
             throw new InvalidOperationException("La destinazione è cambiata.");
         }
         string toInsert = _insertedBlocks == 0 ? text : " " + text;
         if (!await _desktop.InsertAsync(_target, toInsert, token))
         {
             _segmentFailureText = text;
+            _segmentFailureReason = "Inserimento non completato. Controlla il campo per eventuale testo parziale prima di recuperare il blocco.";
             throw new IOException("Inserimento incompleto.");
         }
         _insertedBlocks++;
@@ -546,6 +558,7 @@ public partial class MainWindow : Window
         {
             var target = await Task.Run(DesktopInput.Capture).WaitAsync(TimeSpan.FromSeconds(2), token);
             if (target == null) { Recover(_pending, "Seleziona un campo compatibile e riprova.", _manualOnly); return; }
+            _desktop.TrackTarget(target);
             if (await _desktop.InsertAsync(target, _pending, token)) { FinishSession(); Status("Testo inserito", "Pronta per una nuova dettatura."); }
             else Recover(_pending, "Inserimento non completato. Controlla eventuale testo parziale prima di riprovare.", true);
         }
@@ -580,7 +593,7 @@ public partial class MainWindow : Window
         _recording = _busy = _recoveryArmed = _manualOnly = false;
         _badge.SetSessionActive(false);
         _target = null; _pending = ""; RecoveryText.Clear(); RecoveryPanel.Visibility = Visibility.Collapsed;
-        _segmentChannel = null; _segmentWorker = null; _segmentFailureText = "";
+        _segmentChannel = null; _segmentWorker = null; _segmentFailureText = _segmentFailureReason = "";
         SettingsPanel.IsEnabled = ModelPanel.IsEnabled = true;
         _session?.Dispose(); _session = null;
         if (resumeWake) StartWakeListener();

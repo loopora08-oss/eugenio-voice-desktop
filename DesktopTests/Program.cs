@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Interop;
@@ -10,6 +11,7 @@ using VoceLocale.Core;
 
 internal static class Program
 {
+    [DllImport("user32.dll")] private static extern void NotifyWinEvent(uint evt, nint hwnd, int obj, int child);
     [STAThread]
     public static void Main(string[] args)
     {
@@ -45,6 +47,7 @@ internal static class Program
                         case "other": other.Focus(); break;
                         case "password": password.Focus(); break;
                         case "readonly": readOnly.Focus(); break;
+                        case "focus-noise": NotifyWinEvent(0x8005, new WindowInteropHelper(window).Handle, -4, 0); break;
                     }
                     return JsonSerializer.Serialize(new { text = normal.Text, other = other.Text, enters });
                 });
@@ -75,13 +78,24 @@ internal static class Program
             Check("normal editable target recognized", target != null);
             if (target == null) throw new InvalidOperationException("Test fixture must be foreground at normal desktop integrity.");
             desktop.BeginWatch();
+            desktop.TrackTarget(target);
+            using var duplicateFocus = await Command("focus-noise");
+            await Task.Delay(350);
+            Check("same-editor focus notification does not invalidate destination", !desktop.Changed);
+            NotifyWinEvent(0x8005, source.Handle, -4, 0);
+            await Task.Delay(350);
+            Check("background focus notification does not invalidate destination", !desktop.Changed);
             bool inserted = await desktop.InsertAsync(target, "Caffè, perché?\nNon voglio annullare. 😀", CancellationToken.None);
             await Task.Delay(200);
             using var state = await Command("get");
             Console.WriteLine("Synthetic fixture after insertion: " + state.RootElement.GetRawText() + "; inserted=" + inserted + "; changed=" + desktop.Changed);
             Check("unicode accents and emoji inserted", inserted && state.RootElement.GetProperty("text").GetString() == "Caffè, perché? Non voglio annullare. 😀");
             Check("no Enter key injected", state.RootElement.GetProperty("enters").GetInt32() == 0);
-            using var next = await Command("other"); await Task.Delay(250);
+            bool nextBlock = await desktop.InsertAsync(target, " Seconda frase.", CancellationToken.None);
+            using var joined = await Command("get");
+            Check("dictation blocks keep their separating space", nextBlock && joined.RootElement.GetProperty("text").GetString() == "Caffè, perché? Non voglio annullare. 😀 Seconda frase.");
+            using var next = await Command("other");
+            for (int wait = 0; wait < 60 && !desktop.Changed; wait++) await Task.Delay(50);
             Check("focus change observed", desktop.Changed);
             Check("old field insertion refused", !await desktop.InsertAsync(target, "DO NOT INSERT", CancellationToken.None));
             using var otherState = await Command("get");

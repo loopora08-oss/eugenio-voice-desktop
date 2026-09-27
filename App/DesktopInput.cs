@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows.Automation;
 using System.Windows.Interop;
+using System.Windows.Threading;
 using VoceLocale.Core;
 
 namespace VoceLocale;
@@ -21,6 +22,11 @@ public sealed class DesktopInput : IDisposable
     private readonly nint _ignoredMouseWindow;
     private Hotkey _hotkey;
     private bool _registered;
+    private InputTarget? _watchedTarget;
+    private nint _watchedWindow;
+    private int _watchGeneration;
+    private readonly DispatcherTimer _focusPoll = new() { Interval = TimeSpan.FromMilliseconds(500) };
+    private bool _focusCheckPending;
     public bool Watching { get; set; }
     public bool Changed { get; private set; }
     public event Action? Toggle;
@@ -32,7 +38,8 @@ public sealed class DesktopInput : IDisposable
         _source.AddHook(WindowMessage);
         _keyboardCallback = KeyboardHook;
         _mouseCallback = MouseHook;
-        _focusCallback = (_, _, _, _, _, _, _) => { if (Watching) Changed = true; };
+        _focusCallback = (_, evt, hwnd, _, _, _, _) => ObserveFocus(evt, hwnd);
+        _focusPoll.Tick += (_, _) => { if (Watching && !Changed && _watchedTarget is { } target) _ = VerifyFocusAsync(target, _watchGeneration); };
         _keyboardHook = SetWindowsHookEx(13, _keyboardCallback, GetModuleHandle(null), 0);
         _mouseHook = SetWindowsHookEx(14, _mouseCallback, GetModuleHandle(null), 0);
         _focusHook = SetWinEventHook(0x8005, 0x8005, 0, _focusCallback, 0, 0, 2);
@@ -48,8 +55,37 @@ public sealed class DesktopInput : IDisposable
         if (_registered) _registered = RegisterHotKey(_source.Handle, HotkeyId, _hotkey.Modifiers | 0x4000, _hotkey.Key);
         return false;
     }
-    public void BeginWatch() { Changed = false; Watching = true; }
-    public void EndWatch() { Watching = false; Changed = false; }
+    public void BeginWatch() { _watchGeneration++; _watchedTarget = null; _watchedWindow = GetForegroundWindow(); Changed = false; Watching = true; _focusPoll.Start(); }
+    public void TrackTarget(InputTarget target) => _watchedTarget = target;
+    public void EndWatch() { _watchGeneration++; Watching = false; Changed = false; _watchedTarget = null; _focusPoll.Stop(); }
+    private void ObserveFocus(uint evt, nint hwnd)
+    {
+        if (!Watching || Changed) return;
+        // Windows also sends focus notifications for background apps and repeated
+        // notifications for the same editor. Only the selected destination matters.
+        if (GetForegroundWindow() != _watchedWindow || (evt == 3 && hwnd != _watchedWindow))
+        { Changed = true; return; }
+        var target = _watchedTarget;
+        if (target == null || evt != 0x8005) return;
+        if (hwnd != 0)
+        {
+            GetWindowThreadProcessId(hwnd, out uint pid);
+            if (pid != target.ProcessId) return;
+        }
+        _ = VerifyFocusAsync(target, _watchGeneration);
+    }
+    private async Task VerifyFocusAsync(InputTarget target, int generation)
+    {
+        if (_focusCheckPending) return;
+        _focusCheckPending = true;
+        try
+        {
+            var focused = await Task.Run(Capture).WaitAsync(TimeSpan.FromSeconds(2));
+            if (Watching && generation == _watchGeneration && _watchedTarget == target && focused != target) Changed = true;
+        }
+        catch { if (Watching && generation == _watchGeneration) Changed = true; }
+        finally { _focusCheckPending = false; }
+    }
     public static bool ModifiersDown() => new[] { 0x10, 0x11, 0x12, 0x5B, 0x5C }.Any(k => (GetAsyncKeyState(k) & 0x8000) != 0);
     private nint WindowMessage(nint hwnd, int msg, nint wp, nint lp, ref bool handled)
     {
@@ -119,6 +155,7 @@ public sealed class DesktopInput : IDisposable
     {
         // Do not allow Enter/Tab/control characters to execute commands or submit chats.
         var safe = TextPolicy.ToSingleParagraph(text);
+        if (safe.Length > 0 && text.StartsWith(' ')) safe = " " + safe;
         if (safe.Any(char.IsControl)) return false;
         for (int n = 0; n < 30 && ModifiersDown(); n++) await Task.Delay(25, token);
         if (ModifiersDown()) return false;
@@ -183,6 +220,7 @@ public sealed class DesktopInput : IDisposable
     }
     public void Dispose()
     {
+        EndWatch();
         if (_registered) UnregisterHotKey(_source.Handle, HotkeyId);
         _registered = false;
         if (_keyboardHook != 0) UnhookWindowsHookEx(_keyboardHook);
