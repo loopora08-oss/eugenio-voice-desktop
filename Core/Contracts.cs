@@ -30,7 +30,7 @@ public static class Models
 public sealed class Settings
 {
     public string Language { get; set; } = "auto";
-    public string TranscriptionProfile { get; set; } = "fast";
+    public string TranscriptionProfile { get; set; } = "adaptive";
     public bool TranslateToEnglish { get; set; }
     public string TextModel { get; set; } = "minicpm-assistente-it:latest";
     public string TranslationModel { get; set; } = "translategemma:4b";
@@ -188,12 +188,20 @@ public static class TextPolicy
         {
             const string negations = @"\b(?:non|not|never)\b|n['’]t\b";
             if (Regex.Matches(s, negations, RegexOptions.IgnoreCase).Count < Regex.Matches(original, negations, RegexOptions.IgnoreCase).Count) return false;
+            if (!TranslationPolicy.Values(original).SequenceEqual(TranslationPolicy.Values(s))) return false;
+            foreach (var name in TextEntities.NamedWords(original))
+                if (!Regex.IsMatch(s, @"\b" + Regex.Escape(name) + @"\b", RegexOptions.IgnoreCase)) return false;
+            const string weekdays = @"\b(?:lunedì|martedì|mercoledì|giovedì|venerdì|sabato|domenica|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\b";
+            if (!Regex.Matches(original, weekdays, RegexOptions.IgnoreCase).Select(m => m.Value.ToLowerInvariant()).Order()
+                .SequenceEqual(Regex.Matches(s, weekdays, RegexOptions.IgnoreCase).Select(m => m.Value.ToLowerInvariant()).Order())) return false;
         }
+        if (s.Count(c => c == '?') < original.Count(c => c == '?')) return false;
         // Conservative damage check, not a semantic guarantee. Recover the original rather
         // than silently inserting a model reply or a heavily shortened summary.
         var inputWords = Regex.Matches(original, @"[\p{L}\p{N}]+").Count;
         var outputWords = Regex.Matches(s, @"[\p{L}\p{N}]+").Count;
-        if (inputWords >= 6 && outputWords < Math.Ceiling(inputWords * 0.35)) return false;
+        if (inputWords >= 6 && outputWords < Math.Ceiling(inputWords * 0.35)
+            && (!DictationEdits.TryResolve(original, null, out var literalEdit) || ToSingleParagraph(s) != literalEdit)) return false;
         // In chat editors Enter can submit. First release inserts one paragraph, never Enter/Tab.
         result = ToSingleParagraph(s);
         return result.Length > 0;

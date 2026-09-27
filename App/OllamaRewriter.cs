@@ -32,19 +32,8 @@ public sealed class OllamaRewriter : IDisposable
         var watch = Stopwatch.StartNew();
         if (string.IsNullOrWhiteSpace(original) || original.Length > TextPolicy.MaxInputCharacters)
             return (false, null, watch.ElapsedMilliseconds);
-        var sentences = TextPolicy.Sentences(original);
-        if (sentences.Count > 1)
-        {
-            var edited = new List<string>();
-            foreach (var sentence in sentences)
-            {
-                var part = await RewriteAsync(model, sentence, mode, vocabulary, token).ConfigureAwait(false);
-                if (!part.Ok || !TextPolicy.TryValidate(sentence, part.Text ?? "", false, out var cleaned))
-                    return (false, null, watch.ElapsedMilliseconds);
-                edited.Add(cleaned);
-            }
-            return (true, string.Join(" ", edited), watch.ElapsedMilliseconds);
-        }
+        if (mode != "code" && DictationEdits.TryResolve(original, vocabulary, out var immediate))
+            return (true, immediate, watch.ElapsedMilliseconds);
         bool correction = TextPolicy.HasCorrection(original);
         bool english = Regex.IsMatch(original, @"\b(?:let|let's|the|we|please|I|not|Thursday|Tuesday)\b", RegexOptions.IgnoreCase)
             && !Regex.IsMatch(original, @"\b(?:non|voglio|giovedì|martedì|ci|vediamo|scusa|intendevo)\b", RegexOptions.IgnoreCase);
@@ -85,7 +74,7 @@ public sealed class OllamaRewriter : IDisposable
         messages.Add(new("user", JsonSerializer.Serialize(new { transcript = transcriptData })));
 
         var request = new ChatRequest(model, messages.ToArray(), Stream: false, Think: false,
-            Options: new ChatOptions(Temperature: 0.2, TopP: 0.8, NumPredict: 1536, Seed: 42), KeepAlive: "10m");
+            Options: new ChatOptions(Temperature: 0, TopP: 0.8, NumPredict: Math.Clamp(original.Length / 2 + 64, 128, 2048), Seed: 42), KeepAlive: "30m");
         using var response = await _http.PostAsJsonAsync("api/chat", request, JsonOptions, token).ConfigureAwait(false);
         if (!response.IsSuccessStatusCode) return (false, null, watch.ElapsedMilliseconds);
         var result = await response.Content.ReadFromJsonAsync<ChatResponse>(JsonOptions, token).ConfigureAwait(false);
@@ -93,7 +82,7 @@ public sealed class OllamaRewriter : IDisposable
         // empty message for these examples; preserve the transcript instead of losing it.
         if (result is { Done: true } && string.IsNullOrWhiteSpace(result.Message.Content) && !correction)
             return (true, original, watch.ElapsedMilliseconds);
-        return (result is { Done: true } && !string.IsNullOrWhiteSpace(result.Message.Content),
+        return (result is { Done: true } && result.DoneReason != "length" && !string.IsNullOrWhiteSpace(result.Message.Content),
             result?.Message.Content, watch.ElapsedMilliseconds);
     }
 
@@ -102,8 +91,12 @@ public sealed class OllamaRewriter : IDisposable
     private sealed record TagsResponse(ModelTag[] Models);
     private sealed record ModelTag(string Name);
     private sealed record ChatMessage(string Role, string Content);
-    private sealed record ChatOptions(double Temperature, double TopP, int NumPredict, int Seed);
+    private sealed record ChatOptions(double Temperature,
+        [property: System.Text.Json.Serialization.JsonPropertyName("top_p")] double TopP,
+        [property: System.Text.Json.Serialization.JsonPropertyName("num_predict")] int NumPredict, int Seed,
+        [property: System.Text.Json.Serialization.JsonPropertyName("num_thread")] int Threads = 4,
+        [property: System.Text.Json.Serialization.JsonPropertyName("num_ctx")] int Context = 4096);
     private sealed record ChatRequest(string Model, ChatMessage[] Messages, bool Stream, bool Think,
-        ChatOptions Options, string KeepAlive);
-    private sealed record ChatResponse(ChatMessage Message, bool Done);
+        ChatOptions Options, [property: System.Text.Json.Serialization.JsonPropertyName("keep_alive")] string KeepAlive);
+    private sealed record ChatResponse(ChatMessage Message, bool Done, [property: System.Text.Json.Serialization.JsonPropertyName("done_reason")] string? DoneReason);
 }

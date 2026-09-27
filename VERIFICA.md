@@ -1,5 +1,9 @@
 # VoceLocale — verifica della consegna
 
+## Versione 1.4.1 — comprensione e latenza
+
+Profilo adattivo, tagli su pause naturali, ASR anticipata durante la finestra di ripensamento, correzioni esplicite immediate e una sola richiesta MiniCPM per blocco. Le impostazioni del meeting espongono lingua e qualità. Nei 22 test sintetici locali gli errori di parola passano da 33 a 13 su 508 parole; il riconoscimento con small è più lento di base, mentre la dettatura evita attese e riscritture superflue. La suite locale già eseguibile supera 123 controlli, 133 con Ollama. Il nuovo DLL dell'harness di benchmark completo è bloccato dal criterio Code Integrity di Windows e non viene dichiarato verificato localmente. Nessuna impostazione di sicurezza è stata cambiata. Dettagli in [docs/comprensione-1.4.1.md](docs/comprensione-1.4.1.md). Le prove lunghe seguenti riguardano la 1.4.0.
+
 ## Versione 1.4.0 — 27 settembre 2026
 
 La versione attuale include Notetaker dedicato, cattura meeting senza limite di due minuti, pause/ripresa, appunti MiniCPM, traduzione letterale TranslateGemma locale e salvataggio esplicito JSON/Markdown. La build autonoma dei tre eseguibili e 100 controlli logici sono riusciti. La verifica a blocchi con Whisper reale supera i sei campioni sui campi critici dichiarati dal test; le prime tre frasi richiedono 2,7–3 secondi per il riconoscimento. Il test del microfono tramite interfaccia ha verificato avvio, pausa, ripresa e termine senza esportare contenuti personali.

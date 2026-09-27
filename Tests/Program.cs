@@ -3,6 +3,10 @@ using System.Threading.Channels;
 using VoceLocale;
 using VoceLocale.Core;
 
+if (args.Length == 6 && args[0] == "--speech-quality")
+    return await SpeechQualityBenchmark.RunAsync(args[1], args[2], args[3], args[4], args[5]);
+if (args.Length == 4 && args[0] == "--dictation-benchmark")
+    return await DictationBenchmark.RunAsync(args[1], args[2], args[3]);
 if (args.Length == 4 && args[0] == "--meeting-soak")
     return await MeetingSoak.RunAsync(args[1], args[2], args[3]);
 if (args.Length >= 3 && args[0] == "--meeting-audio")
@@ -17,6 +21,30 @@ if (args.Length == 4 && args[0] == "--meeting-benchmark")
 int passed = 0, failed = 0;
 void Check(string name, bool ok) { Console.WriteLine($"{(ok ? "PASS" : "FAIL")} {name}"); if (ok) passed++; else failed++; }
 await MeetingChecks.RunAsync(Check);
+await SpeechPipelineChecks.RunAsync(Check);
+Check("dictation rewrite cannot change a number or named recipient", !TextPolicy.TryValidate("Invia 15 euro a Marco.", "Invia 50 euro a Luca.", false, out _));
+Check("dictation question remains a question rather than its answer", !TextPolicy.TryValidate("Quanto fa due più due?", "Fa quattro.", false, out _));
+Check("confirmed chains of literal corrections survive damage validation", TextPolicy.TryValidate("Arrivo martedì, no, giovedì, scusa, venerdì.", "Arrivo venerdì.", false, out _));
+Check("adaptive speech uses base for short clips and small for context", SpeechProfile.Choose("adaptive", 5 * 32000, true, true) == Models.FastWhisper && SpeechProfile.Choose("adaptive", 8 * 32000, true, true) == Models.Whisper);
+Check("speed and precision profiles respect their selected model", SpeechProfile.Choose("speed", 12 * 32000, true, true) == Models.FastWhisper && SpeechProfile.Choose("accurate", 3 * 32000, true, true) == Models.Whisper);
+Check("speech gracefully uses the verified available model", SpeechProfile.Choose("adaptive", 10 * 32000, true, false) == Models.FastWhisper && SpeechProfile.Choose("adaptive", 2 * 32000, false, true) == Models.Whisper);
+Check("explicit date correction is immediate and preserves unrelated negation", DictationEdits.TryResolve("Ci vediamo martedì, no, intendevo giovedì alle tre. Non voglio annullare.", null, out var directDate) && directDate == "Ci vediamo giovedì alle tre. Non voglio annullare.");
+Check("numeric correction preserves sentence and corrected value", DictationEdits.TryResolve("Il costo previsto è di 50, scusa, 15 euro per persona.", null, out var directNumber) && directNumber == "Il costo previsto è di 15 euro per persona.");
+Check("recipient correction preserves request without executing it", DictationEdits.TryResolve("Scrivi a Marco, no, a Luca che arrivo domani.", null, out var directRecipient) && directRecipient == "Scrivi a Luca che arrivo domani.");
+Check("English correction preserves negation in next sentence", DictationEdits.TryResolve("Let us meet on Tuesday, no, Thursday at 3. I do not want to cancel.", null, out var directEnglish) && directEnglish == "Let us meet on Thursday at 3. I do not want to cancel.");
+Check("successive explicit corrections use the final day", DictationEdits.TryResolve("Arrivo martedì, no, giovedì, scusa, venerdì.", null, out var finalDay) && finalDay == "Arrivo venerdì.");
+Check("ordinary negation and unclear corrections do not use direct edits", !DictationEdits.TryResolve("Non voglio annullare.", null, out _) && !DictationEdits.TryResolve("Era bello, no, diverso.", null, out _));
+Check("quoted correction text is left for contextual editing", !DictationEdits.TryResolve("Scrivi letteralmente \"martedì, no, giovedì\".", null, out _));
+Check("English speech keeps the fast model after detection", SpeechProfile.Choose("adaptive", 10 * 32000, true, true, "en") == Models.FastWhisper);
+using (var boundary = new MeetingAudioSegmenter())
+{
+    var emitted = new List<MeetingAudioChunk>(); boundary.ChunkReady += emitted.Add;
+    for (int i = 0; i < 125; i++) boundary.Push(Tone(2000, 800));
+    Check("meeting does not cut speech at a fixed six-second boundary", emitted.Count == 0);
+    boundary.Push(new byte[16000 * 2 / 5]);
+    Check("meeting uses the next natural pause with bounded latency", emitted.Count == 1 && !emitted[0].Overlap);
+    foreach (var chunk in emitted) Array.Clear(chunk.Audio);
+}
 if (args.Contains("--text-services"))
 {
     await MeetingChecks.TextServicesAsync(Check);

@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-$version = '1.4.0.0'
+$version = '1.4.1.0'
 $installRoot = Join-Path $env:ProgramFiles 'Eugenio'
 $sharedRoot = Join-Path $env:ProgramData 'Eugenio'
 $source = Join-Path $PSScriptRoot 'payload'

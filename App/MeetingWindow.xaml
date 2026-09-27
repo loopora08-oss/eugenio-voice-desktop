@@ -17,6 +17,8 @@
         </DockPanel>
         <WrapPanel Grid.Row="1" Margin="0,12,0,0" VerticalAlignment="Center">
           <ComboBox x:Name="MicrophoneBox" MinWidth="280" MaxWidth="340" Margin="0,0,16,0" AutomationProperties.Name="Microfono meeting"/>
+          <ComboBox x:Name="SpeechProfileBox" MinWidth="195" Margin="0,0,16,0" AutomationProperties.Name="Qualità trascrizione meeting"><ComboBoxItem Content="Equilibrata" Tag="adaptive"/><ComboBoxItem Content="Massima velocità" Tag="speed"/><ComboBoxItem Content="Precisione" Tag="accurate"/></ComboBox>
+          <ComboBox x:Name="MeetingLanguageBox" MinWidth="145" Margin="0,0,16,0" AutomationProperties.Name="Lingua meeting"><ComboBoxItem Content="Italiano / English" Tag="auto"/><ComboBoxItem Content="Italiano" Tag="it"/><ComboBoxItem Content="English" Tag="en"/></ComboBox>
           <CheckBox x:Name="TranslationBox" Content="Traduci letteralmente in inglese" Foreground="#E8EEF6" VerticalAlignment="Center" Margin="0,0,18,0"/>
           <CheckBox x:Name="AutomaticNotesBox" Content="Appunti automatici" IsChecked="True" Foreground="#E8EEF6" VerticalAlignment="Center"/>
           <ProgressBar x:Name="MicrophoneLevel" Width="70" Height="5" Minimum="0" Maximum="1" Margin="18,0,8,0" VerticalAlignment="Center"/><TextBlock x:Name="LevelLabel" Text="Microfono spento" FontSize="12" VerticalAlignment="Center" Foreground="#A8B7C5"/>

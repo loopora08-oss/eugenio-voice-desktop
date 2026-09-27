@@ -2,7 +2,7 @@
 
 App personale Windows x64 per dettare in italiano e inglese, correggere il parlato e inserire il risultato nel campo attivo. Whisper trascrive localmente; la correzione usa il MiniCPM installato in Ollama attraverso `127.0.0.1`. Audio e testo non vengono inviati a servizi cloud. Nessun account o Python richiesto.
 
-**Versione 1.4.0:** badge mobile con mascotte animata, dettatura a blocchi, finestra dedicata **Eugenio Notetaker** e traduzione letterale in inglese. La dettatura usa Whisper small e MiniCPM; le riunioni usano Whisper base con audio in memoria a blocchi di massimo sei secondi, senza il limite di due minuti della dettatura. Traduzione e appunti vengono elaborati localmente in Ollama. I risultati originali compaiono prima delle traduzioni. Prove, tempi e limiti in [docs/meeting-1.4.0.md](docs/meeting-1.4.0.md). I modelli possono commettere errori: non viene garantita una traduzione impeccabile per qualsiasi parlato.
+**Versione 1.4.1:** badge mobile con mascotte animata, dettatura a blocchi, finestra dedicata **Eugenio Notetaker** e traduzione letterale in inglese. **Equilibrata** usa base per frasi brevi e inglese già rilevato, small per frasi italiane più lunghe; **Massima velocità** usa base e **Precisione** small con contesto completo. Nel meeting scegli profilo e lingua prima di avviare. L'audio cerca pause naturali e viene diviso entro dieci secondi, senza il limite di due minuti della dettatura. ASR e finestra di ripensamento si sovrappongono; sostituzioni esplicite semplici sono immediate, quelle ambigue restano affidate a MiniCPM. Prove e limiti in [docs/comprensione-1.4.1.md](docs/comprensione-1.4.1.md) e [prove precedenti](docs/meeting-1.4.0.md). I modelli possono commettere errori.
 
 ## Meeting e traduzione
 

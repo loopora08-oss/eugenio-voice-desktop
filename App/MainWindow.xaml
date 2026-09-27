@@ -38,7 +38,7 @@
         <TextBlock x:Name="InputLevelLabel" Text="Microfono: in attesa del segnale" FontSize="12" Foreground="#A8B7C5" Margin="0,4,0,0" />
         <TextBlock x:Name="WakeStatusLabel" Text="Dì Eugenio per attivare la dettatura, oppure usa il pulsante microfono sul badge." FontSize="12" Foreground="#A8B7C5" Margin="0,4,0,0" />
         <TextBlock Text="Trascrizione" Margin="0,14,0,5" />
-        <ComboBox x:Name="SpeedBox"><ComboBoxItem Content="Veloce · contesto adattato alla frase" /><ComboBoxItem Content="Standard · contesto completo" /></ComboBox>
+        <ComboBox x:Name="SpeedBox"><ComboBoxItem Content="Equilibrata · modello adattato alla frase" /><ComboBoxItem Content="Massima velocità · Whisper base" /><ComboBoxItem Content="Precisione · Whisper small, contesto completo" /></ComboBox>
         <CheckBox x:Name="TranslateBox" Content="Traduzione letterale in inglese · dettatura" Foreground="#E8EEF6" Margin="0,0,0,12"/>
         <TextBlock Text="La traduzione usa TranslateGemma 4B installato in Ollama; conserva anche i ripensamenti pronunciati." FontSize="12" Foreground="#A8B7C5"/>
         <TextBlock Text="Stile di scrittura" Margin="0,14,0,5" />

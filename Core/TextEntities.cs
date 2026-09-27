@@ -11,7 +11,7 @@ public static class TextEntities
         "zero due tre quattro cinque sette otto nove dieci undici dodici tredici quattordici quindici sedici " +
         "diciassette diciotto diciannove venti trenta quaranta cinquanta sessanta settanta ottanta novanta " +
         "lunedì martedì mercoledì giovedì venerdì sabato domenica monday tuesday wednesday thursday friday saturday sunday " +
-        "gennaio febbraio marzo aprile maggio giugno luglio agosto settembre ottobre novembre dicembre " +
+        "ehm uhm um uh hmm gennaio febbraio marzo aprile maggio giugno luglio agosto settembre ottobre novembre dicembre " +
         "january february march april may june july august september october november december").Split(' ', StringSplitOptions.RemoveEmptyEntries), StringComparer.OrdinalIgnoreCase);
 
     // Conservative hints, not a semantic proof. Unknown capitalized words are retained

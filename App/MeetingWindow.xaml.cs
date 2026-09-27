@@ -44,6 +44,8 @@ public partial class MeetingWindow : Window
         TranslationBox.Checked += (_, _) => _translationEnabled = true;
         TranslationBox.Unchecked += (_, _) => _translationEnabled = false;
         MicrophoneBox.ItemsSource = Recorder.Microphones();
+        SpeechProfileBox.SelectedIndex = settings().TranscriptionProfile switch { "accurate" => 2, "speed" => 1, _ => 0 };
+        MeetingLanguageBox.SelectedIndex = settings().Language switch { "it" => 1, "en" => 2, _ => 0 };
         int index = Array.IndexOf(Recorder.Microphones(), settings().Microphone); MicrophoneBox.SelectedIndex = Math.Max(0, index);
         _clock.Tick += (_, _) =>
         {
@@ -73,21 +75,33 @@ public partial class MeetingWindow : Window
         if (MicrophoneBox.SelectedIndex < 0) { StateLabel.Text = "Seleziona un microfono disponibile."; return; }
         if (!_acquireMicrophone()) { StateLabel.Text = "Termina prima la dettatura o l’elaborazione in corso."; return; }
         _starting = true; StartButton.IsEnabled = NewButton.IsEnabled = false; MicrophoneBox.IsEnabled = false;
+        SpeechProfileBox.IsEnabled = MeetingLanguageBox.IsEnabled = false;
         StopButton.IsEnabled = true;
         StateLabel.Text = "Preparazione del meeting…";
         CaptureStateChanged?.Invoke("Meeting · preparazione, microfono spento", false, "processing");
         _lifetime = new CancellationTokenSource();
         try
         {
-            if (!await Storage.VerifyAsync(Models.FastWhisper, Storage.ModelPath(Models.FastWhisper), _lifetime.Token))
-                throw new InvalidDataException("Whisper base mancante: scarica i modelli dalle impostazioni di Eugenio.");
-            var loaded = await _whisper.RunAsync(new(Guid.NewGuid().ToString(), "load", Storage.ModelPath(Models.FastWhisper)), _lifetime.Token);
+            bool baseAvailable = await Storage.VerifyAsync(Models.FastWhisper, Storage.ModelPath(Models.FastWhisper), _lifetime.Token);
+            bool smallAvailable = await Storage.VerifyAsync(Models.Whisper, Storage.ModelPath(Models.Whisper), _lifetime.Token);
+            if (!baseAvailable && !smallAvailable) throw new InvalidDataException("Whisper mancante: scarica i modelli dalle impostazioni di Eugenio.");
+            string profile = ((System.Windows.Controls.ComboBoxItem)SpeechProfileBox.SelectedItem).Tag.ToString()!;
+            string language = ((System.Windows.Controls.ComboBoxItem)MeetingLanguageBox.SelectedItem).Tag.ToString()!;
+            string? lastLanguage = null;
+            var model = SpeechProfile.Choose(profile, 7 * 32000, baseAvailable, smallAvailable, language);
+            var loaded = await _whisper.RunAsync(new(Guid.NewGuid().ToString(), "load", Storage.ModelPath(model)), _lifetime.Token);
             if (!loaded.Ok) throw new IOException("Motore meeting non disponibile.");
             var settings = _settings();
             _document = new() { Title = TitleBox.Text, CreatedAt = DateTimeOffset.Now };
             _notedEntries = 0; _lastNotesAt = Environment.TickCount64; _path = null;
             _stream = new MeetingStream(
-                (chunk, token) => _whisper.RunAsync(new(Guid.NewGuid().ToString(), "transcribe", Storage.ModelPath(Models.FastWhisper), settings.Language, chunk.Audio, Mode: "fast", Vocabulary: settings.Vocabulary), token),
+                async (chunk, token) =>
+                {
+                    var selected = SpeechProfile.Choose(profile, chunk.Audio.Length, baseAvailable, smallAvailable, language == "auto" ? lastLanguage : language);
+                    var result = await _whisper.RunAsync(new(Guid.NewGuid().ToString(), "transcribe", Storage.ModelPath(selected), language, chunk.Audio, Mode: SpeechProfile.DecoderMode(profile), Vocabulary: settings.Vocabulary), token);
+                    if (result.Ok) lastLanguage = result.Language;
+                    return result;
+                },
                 async (source, language, token) =>
                 {
                     var translated = await _text.TranslateAsync(settings.TranslationModel, source, settings.Vocabulary, token, language);
@@ -122,6 +136,7 @@ public partial class MeetingWindow : Window
             _starting = false; _recorder?.Dispose(); _recorder = null; _stream?.Dispose(); _stream = null;
             PauseButton.IsEnabled = StopButton.IsEnabled = false;
             _lifetime?.Dispose(); _lifetime = null; StartButton.IsEnabled = NewButton.IsEnabled = MicrophoneBox.IsEnabled = true; _releaseMicrophone();
+            SpeechProfileBox.IsEnabled = MeetingLanguageBox.IsEnabled = true;
         }
     }
     private void AddEntry(MeetingEntry entry)
@@ -194,6 +209,7 @@ public partial class MeetingWindow : Window
             _lifetime?.Cancel(); _lifetime?.Dispose(); _lifetime = null;
             _finishing = _paused = false; MicrophoneLevel.Value = 0; InputLevelChanged?.Invoke(0); LevelLabel.Text = "Microfono spento";
             StartButton.IsEnabled = NewButton.IsEnabled = MicrophoneBox.IsEnabled = true; _whisper.Stop(); _releaseMicrophone();
+            SpeechProfileBox.IsEnabled = MeetingLanguageBox.IsEnabled = true;
         }
     }
     private async Task FinishTranslationsAsync(MeetingStream stream)

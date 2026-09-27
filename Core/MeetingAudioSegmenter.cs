@@ -9,9 +9,11 @@ public sealed record MeetingAudioChunk(long Sequence, long StartSample, long End
 /// <summary>Continuous 16 kHz PCM capture with bounded phrase storage, no session-duration limit.</summary>
 public sealed class MeetingAudioSegmenter : IDisposable
 {
-    public const int MaxChunkBytes = 16000 * 2 * 6;
+    public const int MaxChunkBytes = 16000 * 2 * 10;
+    private const int PreferredChunkBytes = 16000 * 2 * 6;
     private const int MinimumPhraseBytes = 16000 * 2 * 4;
-    private const int SilenceBytes = 16000 * 2 * 6 / 10;
+    private const int SilenceBytes = 16000 * 2 * 45 / 100;
+    private const int BoundarySilenceBytes = 16000 * 2 * 15 / 100;
     private const int OverlapBytes = 16000 * 2;
     private readonly MemoryStream _phrase = new(MaxChunkBytes + 3200);
     private readonly AudioLeadIn _prefix = new(OverlapBytes);
@@ -46,8 +48,11 @@ public sealed class MeetingAudioSegmenter : IDisposable
             else if (_speaking) _silence += count;
             else { _prefix.Push(frame); _nextOverlap = false; }
             if (_speaking) _phrase.Write(frame);
-            if (_phrase.Length >= MaxChunkBytes) Emit(cut: true, trim: 0);
-            else if (_speaking && _silence >= SilenceBytes && _phrase.Length >= MinimumPhraseBytes) Emit(cut: false, trim: 16000 * 2 * 3 / 10);
+            // Prefer an actual pause over cutting every six seconds in the middle of a word.
+            if (_speaking && _phrase.Length >= MinimumPhraseBytes &&
+                (_silence >= SilenceBytes || _phrase.Length >= PreferredChunkBytes && _silence >= BoundarySilenceBytes))
+                Emit(cut: false, trim: Math.Min(_silence / 2, 16000 * 2 * 2 / 10));
+            else if (_phrase.Length >= MaxChunkBytes) Emit(cut: true, trim: 0);
         }
     }
 

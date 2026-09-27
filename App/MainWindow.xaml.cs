@@ -15,9 +15,11 @@ namespace VoceLocale;
 public partial class MainWindow : Window
 {
     private Settings _settings = Storage.LoadSettings();
-    private readonly EngineClient _whisper = new("WhisperWorker");
+    private readonly EngineClient _whisper = new("WhisperWorker", realtime: true);
     private readonly EngineClient _wakeWhisper = new("WhisperWorker");
     private ModelSpec _dictationModel = Models.Whisper, _wakeModel = Models.Whisper;
+    private bool _baseAvailable, _smallAvailable;
+    private string? _lastSpeechLanguage;
     private readonly OllamaRewriter _rewrite = new();
     private readonly OllamaTextService _translation = new();
     private readonly List<MeetingWindow> _meetings = [];
@@ -53,7 +55,7 @@ public partial class MainWindow : Window
         };
         ShortcutBox.Text = _settings.Shortcut;
         LanguageBox.SelectedIndex = _settings.Language switch { "it" => 1, "en" => 2, _ => 0 };
-        SpeedBox.SelectedIndex = _settings.TranscriptionProfile == "accurate" ? 1 : 0;
+        SpeedBox.SelectedIndex = _settings.TranscriptionProfile switch { "accurate" => 2, "speed" => 1, _ => 0 };
         TranslateBox.IsChecked = _settings.TranslateToEnglish;
         ModeBox.SelectedIndex = _settings.Mode switch { "message" => 1, "email" => 2, "code" => 3, _ => 0 };
         RewriteModelBox.Text = _settings.RewriteModel;
@@ -274,7 +276,7 @@ public partial class MainWindow : Window
         _shortcutNotice = "";
         var settings = new Settings
         {
-            TranscriptionProfile = SpeedBox.SelectedIndex == 1 ? "accurate" : "fast",
+            TranscriptionProfile = SpeedBox.SelectedIndex switch { 2 => "accurate", 1 => "speed", _ => "adaptive" },
             TranslateToEnglish = TranslateBox.IsChecked == true,
             TextModel = TextModelBox.SelectedItem as string ?? _settings.TextModel,
             TranslationModel = _settings.TranslationModel,
@@ -301,6 +303,7 @@ public partial class MainWindow : Window
             ModelsLabel.Text = "Verifica dei modelli Whisper…";
             bool fastValid = await Storage.VerifyAsync(Models.FastWhisper, Storage.ModelPath(Models.FastWhisper), setup.Token);
             bool smallValid = await Storage.VerifyAsync(Models.Whisper, Storage.ModelPath(Models.Whisper), setup.Token);
+            _baseAvailable = fastValid; _smallAvailable = smallValid;
             _dictationModel = smallValid ? Models.Whisper : Models.FastWhisper;
             _wakeModel = fastValid ? Models.FastWhisper : _dictationModel;
             bool whisperValid = fastValid || smallValid;
@@ -332,6 +335,13 @@ public partial class MainWindow : Window
         var installed = await _rewrite.GetModelsAsync(timeout.Token);
         string rewriteModel = RewriteModelBox.SelectedItem as string ?? _settings.RewriteModel;
         if (loads.Any(a => !a.Ok) || !installed.Contains(rewriteModel, StringComparer.OrdinalIgnoreCase)) throw new IOException();
+        if (_baseAvailable && _smallAvailable)
+        {
+            var baseLoad = await _whisper.RunAsync(new(Guid.NewGuid().ToString(), "load", Storage.ModelPath(Models.FastWhisper)), timeout.Token);
+            if (!baseLoad.Ok) throw new IOException();
+        }
+        // Prime MiniCPM with a public synthetic greeting; never use the user's text.
+        await _rewrite.RewriteAsync(rewriteModel, "Buongiorno.", "general", null, timeout.Token);
         _settings.RewriteModel = rewriteModel;
         _ready = true;
         if (_hotkeyAvailable) Status("Motori pronti", _shortcutNotice + "Avvio del microfono…");
@@ -502,6 +512,7 @@ public partial class MainWindow : Window
 
     private void BeginSegmentPipeline(CancellationToken token)
     {
+        _lastSpeechLanguage = null;
         _segmentsEmitted = _insertedBlocks = 0;
         _segmentFailureText = "";
         _segmentFailureReason = "";
@@ -524,7 +535,7 @@ public partial class MainWindow : Window
         var channel = _segmentChannel;
         try
         {
-            await SpeechBlockQueue.RunAsync(reader, TimeSpan.FromMilliseconds(1500), ProcessSegmentAsync, token);
+            await SpeechBlockQueue.RunPreparedAsync(reader, TimeSpan.FromMilliseconds(1500), TranscribeBlockAsync, ProcessSegmentAsync, token);
         }
         catch
         {
@@ -557,10 +568,10 @@ public partial class MainWindow : Window
         }
     }
 
-    private async Task ProcessSegmentAsync(byte[] audio, CancellationToken token)
+    private async Task ProcessSegmentAsync(byte[] audio, EngineResponse transcription, CancellationToken token)
     {
         await Dispatcher.InvokeAsync(() => _badge.SetStatus("Elaborazione della frase…", "processing"));
-        var output = await ProcessBlockAsync(audio, _insertedBlocks == 0, token);
+        var output = await FinishBlockAsync(transcription, _insertedBlocks == 0, token);
         if (output.Final == null)
         {
             _segmentFailureText = output.Raw;
@@ -595,9 +606,16 @@ public partial class MainWindow : Window
 
     private async Task<(string Raw, string? Final, long TranscriptionMs, long RewriteMs)> ProcessBlockAsync(byte[] audio, bool stripWake, CancellationToken token)
     {
-        var transcription = await _whisper.RunAsync(new(Guid.NewGuid().ToString(), "transcribe",
-            Storage.ModelPath(_dictationModel), _settings.Language, audio, Mode: _settings.TranscriptionProfile, Vocabulary: _settings.Vocabulary), token);
+        var transcription = await TranscribeBlockAsync(audio, token);
+        return await FinishBlockAsync(transcription, stripWake, token);
+    }
+    private Task<EngineResponse> TranscribeBlockAsync(byte[] audio, CancellationToken token) =>
+        _whisper.RunAsync(new(Guid.NewGuid().ToString(), "transcribe",
+            Storage.ModelPath(SpeechProfile.Choose(_settings.TranscriptionProfile, audio.Length, _baseAvailable, _smallAvailable, _settings.Language == "auto" ? _lastSpeechLanguage : _settings.Language)), _settings.Language, audio, Mode: SpeechProfile.DecoderMode(_settings.TranscriptionProfile), Vocabulary: _settings.Vocabulary), token);
+    private async Task<(string Raw, string? Final, long TranscriptionMs, long RewriteMs)> FinishBlockAsync(EngineResponse transcription, bool stripWake, CancellationToken token)
+    {
         if (!transcription.Ok || string.IsNullOrWhiteSpace(transcription.Text)) throw new IOException("Trascrizione non riuscita.");
+        _lastSpeechLanguage = transcription.Language;
         string raw = stripWake ? StripWakePhrase(transcription.Text) : transcription.Text.Trim();
         if (string.IsNullOrWhiteSpace(raw)) return ("", "", transcription.Milliseconds, 0);
         if (_settings.TranslateToEnglish)

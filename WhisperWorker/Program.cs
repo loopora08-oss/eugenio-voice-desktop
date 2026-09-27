@@ -7,7 +7,7 @@ using Whisper.net;
 Console.InputEncoding = Encoding.UTF8;
 Console.OutputEncoding = new UTF8Encoding(false);
 WhisperFactory? factory = null;
-string loaded = "";
+var factories = new Dictionary<string, WhisperFactory>(StringComparer.OrdinalIgnoreCase);
 while (await Console.In.ReadLineAsync() is { } line)
 {
     EngineRequest? request = null;
@@ -15,11 +15,14 @@ while (await Console.In.ReadLineAsync() is { } line)
     {
         request = JsonSerializer.Deserialize<EngineRequest>(line) ?? throw new InvalidDataException();
         var watch = Stopwatch.StartNew();
-        if (loaded != request.ModelPath)
+        if (!factories.TryGetValue(request.ModelPath, out factory))
         {
-            factory?.Dispose();
+            if (factories.Count == 2)
+            {
+                var oldest = factories.First(); oldest.Value.Dispose(); factories.Remove(oldest.Key);
+            }
             factory = WhisperFactory.FromPath(request.ModelPath);
-            loaded = request.ModelPath;
+            factories.Add(request.ModelPath, factory);
         }
         string result = "";
         string? language = null;
@@ -46,6 +49,8 @@ while (await Console.In.ReadLineAsync() is { } line)
                     if (request.Operation == "transcribe" && request.Mode == "fast" && samples.Length <= 6 * 16000) builder.WithSingleSegment();
                     if (request.Operation == "transcribe" && samples.Length <= 6 * 16000)
                         builder.WithPrompt("Buongiorno. Come stai? Can you help me? Email, e-mail, mail, Eugenio, ChatGPT, Claude, Codex, Marco, Luca. Lunedì, martedì, mercoledì, giovedì, venerdì, sabato, domenica. " + string.Join(", ", (request.Vocabulary ?? []).Where(x => x.Length <= 60).Take(40)));
+                    if (request.Operation == "transcribe" && samples.Length > 6 * 16000 && request.Vocabulary is { Length: > 0 })
+                        builder.WithPrompt(string.Join(", ", request.Vocabulary.Where(x => !string.IsNullOrWhiteSpace(x) && x.Length <= 60).Take(40)));
                     using var processor = builder.Build();
                     var sb = new StringBuilder();
                     await foreach (var segment in processor.ProcessAsync(samples)) { sb.Append(segment.Text).Append(' '); language ??= segment.Language; }
@@ -77,4 +82,4 @@ while (await Console.In.ReadLineAsync() is { } line)
     request = null;
     line = "";
 }
-factory?.Dispose();
+foreach (var cached in factories.Values) cached.Dispose();
