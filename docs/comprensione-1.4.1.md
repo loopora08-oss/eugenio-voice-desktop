@@ -30,4 +30,6 @@ I tre eseguibili 1.4.1 compilano. Il DLL del nuovo harness di benchmark completo
 
 Anche `engines/WhisperWorker/WhisperWorker.exe` del pacchetto finale è rifiutato da Windows (errore 4551). I confronti acustici usano una build di sviluppo del nuovo codice del riconoscitore; non dimostrano che il pacchetto finale possa essere avviato su questo PC. La precedente 1.4.0 resta installata e aperta. Nessun certificato di firma del codice è stato trovato nello store personale. Prima dell'aggiornamento operativo serve una firma attendibile o una distribuzione autorizzata dal gestore del criterio. Il codice e gli hash del pacchetto sono forniti per questa verifica.
 
+La build Windows del codice finale `e3ab055` è riuscita su GitHub: [run 36324462785](https://github.com/loopora08-oss/eugenio-voice-desktop/actions/runs/36324462785). Compila i tre eseguibili e il nuovo harness, ed esegue i controlli logici. Non usa il microfono né i modelli installati sul PC e non sostituisce il requisito di firma locale.
+
 Le prove da 61 minuti della 1.4.0 restano separate: 732 blocchi, nessuna perdita, p95 13,37 s con traduzione disattivata. Non sono una prova da un'ora della nuova selezione adattiva. I contenuti di prova sono inventati; audio personale e trascrizioni reali non sono esportati nei report.
