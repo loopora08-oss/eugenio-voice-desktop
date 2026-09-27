@@ -8,7 +8,7 @@ function Write-Speech([string]$Name, [string]$Language, [string]$Text) {
     if (!$voice) { throw "No local voice for $Language" }
     $speaker.Voice = $voice
     $stream = New-Object -ComObject SAPI.SpFileStream
-    $stream.Format.Type = 22 # SAFT16kHz16BitMono
+    $stream.Format.Type = 18 # SAFT16kHz16BitMono (22 would be 22.05 kHz)
     $file = Join-Path $OutputDirectory $Name
     $stream.Open($file,3,$false)
     $speaker.AudioOutputStream=$stream
@@ -17,6 +17,9 @@ function Write-Speech([string]$Name, [string]$Language, [string]$Text) {
 }
 Write-Speech 'it-correction.wav' '410' 'Ci vediamo martedì, no, intendevo giovedì alle tre. Non voglio annullare la prenotazione.'
 Write-Speech 'en-correction.wav' '409' 'Let us meet on Tuesday, no, Thursday at three. I do not want to cancel the reservation.'
+Write-Speech 'translation-0.wav' '410' 'Sono cinquanta, scusa, quindici euro. Non voglio annullare.'
+Write-Speech 'translation-1.wav' '410' 'Scrivi una mail a Marco. Quanto fa due più due?'
+Write-Speech 'translation-2.wav' '410' 'Sei disponibile? Non ho mai visto Luca.'
 $paragraphs = @(
 'Sto preparando il programma della prossima settimana. Lunedì lavoreremo alla presentazione e controlleremo i documenti. La riunione sarà martedì, no, intendevo giovedì alle tre del pomeriggio.',
 'Per favore manda il documento a Marco, anzi a Luca. Non voglio annullare la prenotazione. Il costo previsto è di cinquanta, scusa, quindici euro per persona.',
@@ -31,9 +34,16 @@ $source = Join-Path $OutputDirectory 'benchmark-source.wav'
 $reader=[System.IO.BinaryReader]::new([System.IO.File]::OpenRead($source))
 [void]$reader.ReadBytes(12)
 $pcm=$null
+$formatValid=$false
 while($reader.BaseStream.Position + 8 -le $reader.BaseStream.Length) {
     $id=[System.Text.Encoding]::ASCII.GetString($reader.ReadBytes(4)); $length=$reader.ReadInt32()
-    if($id -eq 'data') { $pcm=$reader.ReadBytes($length); break }
+    if($id -eq 'fmt ') {
+        $fmt=$reader.ReadBytes($length)
+        $formatValid = [BitConverter]::ToInt16($fmt,0) -eq 1 -and [BitConverter]::ToInt16($fmt,2) -eq 1 -and [BitConverter]::ToInt32($fmt,4) -eq 16000 -and [BitConverter]::ToInt16($fmt,14) -eq 16
+        if ($length % 2) { [void]$reader.BaseStream.Seek(1,[System.IO.SeekOrigin]::Current) }
+        continue
+    }
+    if($id -eq 'data') { if (!$formatValid) { throw 'Expected synthetic mono PCM16 at 16kHz' }; $pcm=$reader.ReadBytes($length); break }
     [void]$reader.BaseStream.Seek($length + ($length % 2),[System.IO.SeekOrigin]::Current)
 }
 $reader.Dispose()

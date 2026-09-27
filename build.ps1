@@ -12,9 +12,13 @@ foreach ($item in $projects) {
   & $Dotnet publish (Join-Path $PSScriptRoot $item.Project) -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -p:RestoreLockedMode=true -o $item.Target
   if ($LASTEXITCODE -ne 0) { throw "Publish failed: $($item.Project)" }
 }
-& $Dotnet run --project (Join-Path $PSScriptRoot 'Tests/Tests.csproj') -c Release
+$testOutput = Join-Path $PSScriptRoot 'Tests/bin/package-checks'
+& $Dotnet build (Join-Path $PSScriptRoot 'Tests/Tests.csproj') -c Release -o $testOutput
+if ($LASTEXITCODE -ne 0) { throw 'Test build failed' }
+& $Dotnet (Join-Path $testOutput 'Tests.dll')
 if ($LASTEXITCODE -ne 0) { throw 'Tests failed' }
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'README.md') -Destination (Join-Path $Destination 'LEGGIMI.md')
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'THIRD-PARTY.md') -Destination $Destination
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'VERIFICA.md') -Destination $Destination
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'licenses') -Destination $Destination -Recurse -Force
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'docs') -Destination $Destination -Recurse -Force

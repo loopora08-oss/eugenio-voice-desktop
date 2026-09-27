@@ -1,5 +1,11 @@
 # VoceLocale — verifica della consegna
 
+## Versione 1.4.0 — 27 settembre 2026
+
+La versione attuale include Notetaker dedicato, cattura meeting senza limite di due minuti, pause/ripresa, appunti MiniCPM, traduzione letterale TranslateGemma locale e salvataggio esplicito JSON/Markdown. La build autonoma dei tre eseguibili e 100 controlli logici sono riusciti. La verifica a blocchi con Whisper reale supera i sei campioni sui campi critici dichiarati dal test; le prime tre frasi richiedono 2,7–3 secondi per il riconoscimento. Il test del microfono tramite interfaccia ha verificato avvio, pausa, ripresa e termine senza esportare contenuti personali.
+
+La prova in tempo reale di 61 minuti è ancora in corso e non è dichiarata superata. Dettagli, misure e limiti aggiornati in [docs/meeting-1.4.0.md](docs/meeting-1.4.0.md). Le sezioni seguenti documentano revisioni precedenti e non descrivono lo stato attuale dei modelli o dell'SDK installato. Il pacchetto rimane non firmato; nessuna impostazione di sicurezza è stata cambiata.
+
 ## Mascotte Eugenio — 24 settembre 2026
 
 - Creata una sprite sheet pixel art originale con quattro pose e sfondo trasparente, incorporata come risorsa WPF. Il badge ora seleziona la posa raccolta in standby, mostra il risveglio all’avvio di registrazione/elaborazione e anima due pose durante la sessione.

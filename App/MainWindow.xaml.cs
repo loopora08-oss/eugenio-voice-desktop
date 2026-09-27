@@ -19,6 +19,9 @@ public partial class MainWindow : Window
     private readonly EngineClient _wakeWhisper = new("WhisperWorker");
     private ModelSpec _dictationModel = Models.Whisper, _wakeModel = Models.Whisper;
     private readonly OllamaRewriter _rewrite = new();
+    private readonly OllamaTextService _translation = new();
+    private readonly List<MeetingWindow> _meetings = [];
+    private bool _meetingHeld;
     private readonly Recorder _recorder = new();
     private readonly BadgeWindow _badge;
     private readonly VoiceWakeListener _wake = new();
@@ -51,8 +54,10 @@ public partial class MainWindow : Window
         ShortcutBox.Text = _settings.Shortcut;
         LanguageBox.SelectedIndex = _settings.Language switch { "it" => 1, "en" => 2, _ => 0 };
         SpeedBox.SelectedIndex = _settings.TranscriptionProfile == "accurate" ? 1 : 0;
+        TranslateBox.IsChecked = _settings.TranslateToEnglish;
         ModeBox.SelectedIndex = _settings.Mode switch { "message" => 1, "email" => 2, "code" => 3, _ => 0 };
         RewriteModelBox.Text = _settings.RewriteModel;
+        TextModelBox.Text = _settings.TextModel;
         VocabularyBox.Text = string.Join(Environment.NewLine, _settings.Vocabulary ?? []);
         RefreshMicrophoneList();
         _recorder.LimitReached += () => Dispatcher.BeginInvoke(new Action(async () => await StopRecordingAsync()));
@@ -112,6 +117,7 @@ public partial class MainWindow : Window
         };
         _tray.DoubleClick += (_, _) => ShowSettings();
         _tray.ContextMenuStrip.Items.Add("Apri VoceLocale", null, (_, _) => ShowSettings());
+        _tray.ContextMenuStrip.Items.Add("Eugenio Notetaker", null, (_, _) => ShowMeeting());
         _tray.ContextMenuStrip.Items.Add("Annulla dettatura", null, (_, _) => CancelSession());
         _tray.ContextMenuStrip.Items.Add("Esci", null, (_, _) => Exit());
     }
@@ -135,9 +141,36 @@ public partial class MainWindow : Window
         else _badge.SetStatus(title, state);
     }
     internal void ShowSettings() { Show(); WindowState = WindowState.Normal; Activate(); }
+    private void OpenNotetaker(object sender, RoutedEventArgs e) => ShowMeeting();
+    internal MeetingWindow ShowMeeting(bool fresh = false)
+    {
+        var window = fresh ? null : _meetings.FirstOrDefault(m => m.Active) ?? _meetings.LastOrDefault();
+        if (window == null)
+        {
+            window = new MeetingWindow(() => _settings, () =>
+            {
+                if (_recording || _busy || _setup != null || _pending.Length > 0 || _meetingHeld) return false;
+                _meetingHeld = true; _wake.Stop(); _wakeListening = false; _badge.SetListening(false);
+                SettingsPanel.IsEnabled = ModelPanel.IsEnabled = false; return true;
+            }, () =>
+            {
+                _meetingHeld = false; _badge.SetSessionActive(false); SettingsPanel.IsEnabled = ModelPanel.IsEnabled = true;
+                StartWakeListener();
+            });
+            window.NewDocumentRequested += () => ShowMeeting(true);
+            window.DocumentOpenRequested += (doc, path) => ShowMeeting(true).RestoreDocument(doc, path);
+            window.InputLevelChanged += rms => _badge.SetInputLevel(rms);
+            window.CaptureStateChanged += (text, recording, state) => { _badge.SetSessionActive(recording); _badge.SetStatus(text, state); };
+            _meetings.Add(window);
+            var savedWindow = window;
+            _tray?.ContextMenuStrip?.Items.Add($"Notetaker {_meetings.Count}", null, (_, _) => { savedWindow.Show(); savedWindow.Activate(); });
+        }
+        window.Show(); window.WindowState = WindowState.Normal; window.Activate();
+        return window;
+    }
     private void StartWakeListener()
     {
-        if (!_ready || _closing || _recording || _busy || _setup != null || _wakeListening || _pending.Length > 0) return;
+        if (!_ready || _closing || _recording || _busy || _setup != null || _wakeListening || _pending.Length > 0 || _meetingHeld) return;
         int device = MicrophoneBox.SelectedIndex;
         if (device < 0) { _badge.SetStatus("Seleziona un microfono", "error"); return; }
         try
@@ -231,7 +264,7 @@ public partial class MainWindow : Window
     private void RefreshMicrophones(object sender, RoutedEventArgs e) => RefreshMicrophoneList();
     private async void SaveSettings(object sender, RoutedEventArgs e)
     {
-        if (_busy || _recording || _setup != null) return;
+        if (_busy || _recording || _setup != null || _meetingHeld) return;
         if (!Hotkey.TryParse(ShortcutBox.Text, out var key))
         { Status("Scorciatoia non valida", "Usa Ctrl o Alt con una lettera, un numero, Space oppure F1–F11."); return; }
         if (_desktop == null || !_desktop.Configure(key))
@@ -241,6 +274,9 @@ public partial class MainWindow : Window
         var settings = new Settings
         {
             TranscriptionProfile = SpeedBox.SelectedIndex == 1 ? "accurate" : "fast",
+            TranslateToEnglish = TranslateBox.IsChecked == true,
+            TextModel = TextModelBox.SelectedItem as string ?? _settings.TextModel,
+            TranslationModel = _settings.TranslationModel,
             Shortcut = ShortcutBox.Text.Trim(), Microphone = MicrophoneBox.SelectedItem as string ?? "",
             Language = ((ComboBoxItem)LanguageBox.SelectedItem).Tag.ToString()!,
             Mode = (ModeBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "general",
@@ -321,6 +357,11 @@ public partial class MainWindow : Window
             ?? models.FirstOrDefault();
         RewriteModelBox.ItemsSource = models;
         RewriteModelBox.SelectedItem = preferred;
+        TextModelBox.ItemsSource = models;
+        TextModelBox.SelectedItem = models.FirstOrDefault(m => m.Equals(_settings.TextModel, StringComparison.OrdinalIgnoreCase))
+            ?? models.FirstOrDefault(m => m.Equals("qwen3.5:4b", StringComparison.OrdinalIgnoreCase))
+            ?? preferred;
+        if (TextModelBox.SelectedItem is string textModel) _settings.TextModel = textModel;
         if (preferred == null) RewriteModelBox.Text = _settings.RewriteModel;
     }
     private void SetSetupBusy(bool busy)
@@ -373,6 +414,7 @@ public partial class MainWindow : Window
     {
         try
         {
+            if (_meetingHeld) { var meeting = _meetings.FirstOrDefault(m => m.Active); if (meeting != null) await meeting.StopAsync(); return; }
             if (_recording) { await StopRecordingAsync(); return; }
             if (_busy || _setup != null) return;
             if (_pending.Length > 0)
@@ -521,7 +563,7 @@ public partial class MainWindow : Window
         if (output.Final == null)
         {
             _segmentFailureText = output.Raw;
-            _segmentFailureReason = "MiniCPM non ha prodotto una correzione valida. Verifica la trascrizione originale prima di inserirla.";
+            _segmentFailureReason = _settings.TranslateToEnglish ? "Traduzione inglese non validata. La trascrizione originale è conservata." : "MiniCPM non ha prodotto una correzione valida. Verifica la trascrizione originale prima di inserirla.";
             throw new InvalidDataException("Correzione non riuscita.");
         }
         if (!string.IsNullOrWhiteSpace(output.Final)) await InsertSegmentAsync(output.Final, token);
@@ -553,10 +595,15 @@ public partial class MainWindow : Window
     private async Task<(string Raw, string? Final, long TranscriptionMs, long RewriteMs)> ProcessBlockAsync(byte[] audio, bool stripWake, CancellationToken token)
     {
         var transcription = await _whisper.RunAsync(new(Guid.NewGuid().ToString(), "transcribe",
-            Storage.ModelPath(_dictationModel), _settings.Language, audio, Mode: _settings.TranscriptionProfile), token);
+            Storage.ModelPath(_dictationModel), _settings.Language, audio, Mode: _settings.TranscriptionProfile, Vocabulary: _settings.Vocabulary), token);
         if (!transcription.Ok || string.IsNullOrWhiteSpace(transcription.Text)) throw new IOException("Trascrizione non riuscita.");
         string raw = stripWake ? StripWakePhrase(transcription.Text) : transcription.Text.Trim();
         if (string.IsNullOrWhiteSpace(raw)) return ("", "", transcription.Milliseconds, 0);
+        if (_settings.TranslateToEnglish)
+        {
+            var translated = await _translation.TranslateAsync(_settings.TranslationModel, raw, _settings.Vocabulary, token, transcription.Language);
+            return (raw, translated.Ok ? translated.Text : null, transcription.Milliseconds, translated.Milliseconds);
+        }
         var correction = await _rewrite.RewriteAsync(_settings.RewriteModel, raw, _settings.Mode, _settings.Vocabulary, token);
         if (!correction.Ok || !TextPolicy.TryValidate(raw, correction.Text ?? "", false, out var final))
             return (raw, null, transcription.Milliseconds, correction.Milliseconds);
@@ -633,14 +680,16 @@ public partial class MainWindow : Window
         _session?.Cancel(); _segmentChannel?.Writer.TryComplete(); _recorder.Dispose();
         FinishSession(); Status("Dettatura annullata", "Audio e testo temporanei eliminati dall’app.");
     }
-    public void HandleUnexpectedError() { CancelSession(); Status("Operazione interrotta", "Nessun nuovo inserimento automatico. Controlla il campo prima di riprovare."); }
+    public void HandleUnexpectedError() { CancelSession(); foreach (var meeting in _meetings.Where(m => m.Active)) _ = meeting.StopAsync(); Status("Operazione interrotta", "Nessun nuovo inserimento automatico. Controlla il campo prima di riprovare."); }
     private void HideWindow(object sender, RoutedEventArgs e) => Hide();
     private void ExitApp(object sender, RoutedEventArgs e) => Exit();
     private void OnClosing(object? sender, CancelEventArgs e) { if (!_closing) { e.Cancel = true; Hide(); } }
-    private void Exit()
+    private async void Exit()
     {
+        if (_closing) return;
         _closing = true; _setup?.Cancel(); CancelSession();
-        _whisper.Dispose(); _wakeWhisper.Dispose(); _rewrite.Dispose(); _desktop?.Dispose();
+        foreach (var meeting in _meetings) await meeting.ShutdownAsync();
+        _whisper.Dispose(); _wakeWhisper.Dispose(); _rewrite.Dispose(); _translation.Dispose(); _desktop?.Dispose();
         _wake.Dispose(); _tray?.Dispose(); _badge.Close();
         System.Windows.Application.Current.Shutdown();
     }

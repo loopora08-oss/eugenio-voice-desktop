@@ -93,10 +93,18 @@ public static class Storage
     }
 }
 
-public sealed class EngineClient(string name, string? applicationRoot = null) : IDisposable
+public sealed class EngineClient(string name, string? applicationRoot = null, bool realtime = false) : IDisposable
 {
     private Process? _process;
     private readonly SemaphoreSlim _gate = new(1);
+    public (long MemoryBytes, double ProcessorSeconds) Metrics
+    {
+        get
+        {
+            try { _process?.Refresh(); return _process is { HasExited: false } ? (_process.WorkingSet64, _process.TotalProcessorTime.TotalSeconds) : (0, 0); }
+            catch { return (0, 0); }
+        }
+    }
     public async Task<EngineResponse> RunAsync(EngineRequest request, CancellationToken token)
     {
         await _gate.WaitAsync(token);
@@ -114,6 +122,7 @@ public sealed class EngineClient(string name, string? applicationRoot = null) : 
                     StandardInputEncoding = new UTF8Encoding(false), StandardOutputEncoding = Encoding.UTF8,
                     WorkingDirectory = Path.GetDirectoryName(path)!
                 }) ?? throw new InvalidOperationException("Motore non avviato.");
+                if (realtime) { try { _process.PriorityClass = ProcessPriorityClass.AboveNormal; } catch { } }
                 // Drain native diagnostics without storing or displaying potentially sensitive output.
                 _process.ErrorDataReceived += (_, _) => { };
                 _process.BeginErrorReadLine();

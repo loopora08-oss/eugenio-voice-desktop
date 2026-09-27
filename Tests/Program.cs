@@ -3,8 +3,25 @@ using System.Threading.Channels;
 using VoceLocale;
 using VoceLocale.Core;
 
+if (args.Length == 4 && args[0] == "--meeting-soak")
+    return await MeetingSoak.RunAsync(args[1], args[2], args[3]);
+if (args.Length >= 3 && args[0] == "--meeting-audio")
+    return await MeetingAudioChecks.RunAsync(args[1], args[2], args.Contains("--small"));
+if (args.Length == 3 && args[0] == "--meeting-chunks")
+    return await MeetingChunkChecks.RunAsync(args[1], args[2]);
+if (args.Length == 2 && args[0] == "--translation-results")
+    return TranslationReplay.Run(args[1]);
+if (args.Length == 4 && args[0] == "--meeting-benchmark")
+    return await MeetingBenchmark.RunAsync(args[1], args[2], args[3]);
+
 int passed = 0, failed = 0;
 void Check(string name, bool ok) { Console.WriteLine($"{(ok ? "PASS" : "FAIL")} {name}"); if (ok) passed++; else failed++; }
+await MeetingChecks.RunAsync(Check);
+if (args.Contains("--text-services"))
+{
+    await MeetingChecks.TextServicesAsync(Check);
+    args = args.Where(x => x != "--text-services").ToArray();
+}
 
 Check("default hotkey", Hotkey.TryParse("Ctrl+Alt+Space", out var key) && key.Modifiers == 3 && key.Key == 32);
 Check("localized hotkey", Hotkey.TryParse("Ctrl+Alt+Spazio", out _));

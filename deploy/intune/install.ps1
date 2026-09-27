@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-$version = '1.2.0.0'
+$version = '1.4.0.0'
 $installRoot = Join-Path $env:ProgramFiles 'Eugenio'
 $sharedRoot = Join-Path $env:ProgramData 'Eugenio'
 $source = Join-Path $PSScriptRoot 'payload'
@@ -14,7 +14,7 @@ foreach ($entry in $manifest) {
     if ($actual -ne $entry.SHA256) { throw "Package hash mismatch: $($entry.Path)" }
 }
 $process = Get-Process -Name 'VoceLocale' -ErrorAction SilentlyContinue
-if ($process) { $process | Stop-Process -Force }
+if ($process) { Write-Host 'Close Eugenio before updating; open meeting notes may be unsaved.'; exit 1618 }
 New-Item -ItemType Directory -Path $installRoot -Force | Out-Null
 Get-ChildItem -LiteralPath $source -Force | Copy-Item -Destination $installRoot -Recurse -Force
 $installKey = 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Eugenio'
@@ -33,6 +33,12 @@ $shortcut.TargetPath = Join-Path $installRoot 'VoceLocale.exe'
 $shortcut.WorkingDirectory = $installRoot
 $shortcut.Description = 'Dettatura locale Eugenio'
 $shortcut.Save()
+$notetakerShortcut = (New-Object -ComObject WScript.Shell).CreateShortcut((Join-Path $startMenu 'Eugenio Notetaker.lnk'))
+$notetakerShortcut.TargetPath = Join-Path $installRoot 'VoceLocale.exe'
+$notetakerShortcut.Arguments = '--meeting'
+$notetakerShortcut.WorkingDirectory = $installRoot
+$notetakerShortcut.Description = 'Meeting e appunti locali Eugenio'
+$notetakerShortcut.Save()
 if (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'models')) {
     New-Item -ItemType Directory -Path (Join-Path $sharedRoot 'models') -Force | Out-Null
     $acl = Get-Acl -LiteralPath $sharedRoot
@@ -45,6 +51,7 @@ if (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'models')) {
     Set-Acl -LiteralPath $sharedRoot -AclObject $acl
     $modelManifest = @{
         'ggml-small.bin' = @{ Bytes = 487601967L; SHA256 = '1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b' }
+        'ggml-base.bin' = @{ Bytes = 147951465L; SHA256 = '60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe' }
     }
     foreach ($name in $modelManifest.Keys) {
         $modelSource = Join-Path (Join-Path $PSScriptRoot 'models') $name

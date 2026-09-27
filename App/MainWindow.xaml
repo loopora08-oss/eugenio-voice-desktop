@@ -3,7 +3,8 @@
     <StackPanel Margin="32">
       <DockPanel Margin="0,0,0,24">
         <Border DockPanel.Dock="Right" Background="#1A3930" CornerRadius="12" Padding="12,6" VerticalAlignment="Top"><TextBlock Text="●  SOLO SUL TUO PC" Foreground="#9CDEBE" FontSize="11" FontWeight="SemiBold" /></Border>
-        <StackPanel><TextBlock Text="VoceLocale" FontSize="30" FontWeight="SemiBold" /><TextBlock Text="Dì Eugenio. Il testo prende forma." Foreground="#A8B7C5" FontSize="15" Margin="0,6,0,0" /></StackPanel>
+        <Button Content="Apri Notetaker" DockPanel.Dock="Right" Click="OpenNotetaker" VerticalAlignment="Center"/>
+        <StackPanel><TextBlock Text="Eugenio" FontSize="30" FontWeight="SemiBold" /><TextBlock Text="Dì Eugenio. Il testo prende forma." Foreground="#A8B7C5" FontSize="15" Margin="0,6,0,0" /></StackPanel>
       </DockPanel>
       <Border Background="#1C2A34" CornerRadius="16" Padding="22" Margin="0,0,0,20">
         <StackPanel>
@@ -32,12 +33,14 @@
         <Grid>
           <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="20" /><ColumnDefinition /></Grid.ColumnDefinitions>
           <StackPanel><TextBlock Text="Microfono" /><ComboBox x:Name="MicrophoneBox" /><Button Content="Aggiorna microfoni" Click="RefreshMicrophones" HorizontalAlignment="Left" /></StackPanel>
-          <StackPanel Grid.Column="2"><TextBlock Text="Lingua" /><ComboBox x:Name="LanguageBox"><ComboBoxItem Content="Automatico · italiano / inglese" Tag="auto" /><ComboBoxItem Content="Italiano" Tag="it" /><ComboBoxItem Content="English" Tag="en" /></ComboBox><TextBlock Text="Mantiene la lingua parlata. Non traduce." FontSize="12" Foreground="#A8B7C5" /></StackPanel>
+          <StackPanel Grid.Column="2"><TextBlock Text="Lingua" /><ComboBox x:Name="LanguageBox"><ComboBoxItem Content="Automatico · italiano / inglese" Tag="auto" /><ComboBoxItem Content="Italiano" Tag="it" /><ComboBoxItem Content="English" Tag="en" /></ComboBox><TextBlock Text="Mantiene la lingua parlata, salvo modalità traduzione." FontSize="12" Foreground="#A8B7C5" /></StackPanel>
         </Grid>
         <TextBlock x:Name="InputLevelLabel" Text="Microfono: in attesa del segnale" FontSize="12" Foreground="#A8B7C5" Margin="0,4,0,0" />
         <TextBlock x:Name="WakeStatusLabel" Text="Dì Eugenio per attivare la dettatura, oppure usa il pulsante microfono sul badge." FontSize="12" Foreground="#A8B7C5" Margin="0,4,0,0" />
         <TextBlock Text="Trascrizione" Margin="0,14,0,5" />
         <ComboBox x:Name="SpeedBox"><ComboBoxItem Content="Veloce · contesto adattato alla frase" /><ComboBoxItem Content="Standard · contesto completo" /></ComboBox>
+        <CheckBox x:Name="TranslateBox" Content="Traduzione letterale in inglese · dettatura" Foreground="#E8EEF6" Margin="0,0,0,12"/>
+        <TextBlock Text="La traduzione usa TranslateGemma 4B installato in Ollama; conserva anche i ripensamenti pronunciati." FontSize="12" Foreground="#A8B7C5"/>
         <TextBlock Text="Stile di scrittura" Margin="0,14,0,5" />
         <ComboBox x:Name="ModeBox">
           <ComboBoxItem Content="Generale · fedele alla voce" Tag="general" />
@@ -48,6 +51,8 @@
         <TextBlock Text="Modello di correzione · Ollama locale" Margin="0,12,0,5" />
         <DockPanel><Button x:Name="RefreshRewriteModelsButton" DockPanel.Dock="Right" Content="Aggiorna elenco" Margin="8,0,0,0" /><ComboBox x:Name="RewriteModelBox" IsEditable="False" ToolTip="Sono mostrati i modelli già installati e disponibili in Ollama." /></DockPanel>
         <TextBlock Text="Predefinito: minicpm-assistente-it:latest. Ollama deve essere avviato sul PC." FontSize="12" Foreground="#A8B7C5" Margin="0,4,0,0" />
+        <TextBlock Text="Modello per appunti · Ollama locale" Margin="0,12,0,5"/>
+        <ComboBox x:Name="TextModelBox" IsEditable="False"/>
         <TextBlock Text="Dizionario personale (fino a 40 nomi o termini, uno per riga)" Margin="0,12,0,5" />
         <TextBox x:Name="VocabularyBox" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="54" MaxHeight="110" VerticalScrollBarVisibility="Auto" ToolTip="Suggerimenti di ortografia locali; non sovrascrivono parole chiaramente diverse." />
         <TextBlock Text="Scorciatoia di emergenza (alternativa a Eugenio)" Margin="0,16,0,5" />

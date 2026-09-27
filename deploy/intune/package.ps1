@@ -28,7 +28,7 @@ Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'uninstall.ps1') -Destination (J
 if ($ModelsDirectory) {
     $ModelsDirectory = (Resolve-Path -LiteralPath $ModelsDirectory).Path
     New-Item -ItemType Directory -Path (Join-Path $stage 'models') -Force | Out-Null
-    foreach ($file in @('ggml-small.bin')) {
+    foreach ($file in @('ggml-small.bin', 'ggml-base.bin')) {
         $candidate = Join-Path $ModelsDirectory $file
         if (Test-Path -LiteralPath $candidate) { Copy-Item -LiteralPath $candidate -Destination (Join-Path $stage 'models') }
     }

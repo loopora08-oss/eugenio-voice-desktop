@@ -8,7 +8,7 @@ public sealed record EngineRequest(string Id, string Operation, string ModelPath
     string Language = "auto", byte[]? Audio = null, string? Text = null,
     string Mode = "general", string[]? Vocabulary = null);
 public sealed record EngineResponse(string Id, bool Ok, string? Text = null,
-    string? Error = null, long Milliseconds = 0);
+    string? Error = null, long Milliseconds = 0, string? Language = null, string? Backend = null);
 public sealed record ModelSpec(string Id, string FileName, string Url, string Sha256, long Bytes);
 
 public static class Models
@@ -31,6 +31,9 @@ public sealed class Settings
 {
     public string Language { get; set; } = "auto";
     public string TranscriptionProfile { get; set; } = "fast";
+    public bool TranslateToEnglish { get; set; }
+    public string TextModel { get; set; } = "minicpm-assistente-it:latest";
+    public string TranslationModel { get; set; } = "translategemma:4b";
     public string Microphone { get; set; } = "";
     public string Shortcut { get; set; } = "Ctrl+Alt+Space";
     public string Mode { get; set; } = "general";

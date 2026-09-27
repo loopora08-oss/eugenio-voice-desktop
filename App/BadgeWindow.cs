@@ -30,6 +30,7 @@ public sealed class BadgeWindow : Window
     private int _mascotFrame;
     private int _mascotFrameTicks;
     private int _wakeTransitionTicks;
+    private Point? _pressedAt;
     public event Action<double, double>? PositionChanged;
 
     public BadgeWindow(Action openSettings, Func<Task> stop)
@@ -102,15 +103,28 @@ public sealed class BadgeWindow : Window
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         Grid.SetColumn(microphone, 4); Grid.SetColumn(gear, 5); grid.Children.Add(microphone);
         var surface = new Border { Background = Brush("#172229"), BorderBrush = Brush("#34444D"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(16), Padding = new Thickness(12, 4, 10, 4), Child = grid };
-        surface.PreviewMouseLeftButtonDown += async (_, e) =>
+        surface.PreviewMouseLeftButtonDown += (_, e) =>
         {
             if (e.OriginalSource is DependencyObject source && FindButton(source)) return;
-            if (_sessionActive) { e.Handled = true; await _stop(); return; }
-            if (e.ButtonState == System.Windows.Input.MouseButtonState.Pressed)
+            _pressedAt = e.GetPosition(this);
+        };
+        surface.PreviewMouseMove += (_, e) =>
+        {
+            if (_pressedAt is not { } origin || e.LeftButton != System.Windows.Input.MouseButtonState.Pressed) return;
+            var point = e.GetPosition(this);
+            if (Math.Abs(point.X - origin.X) >= SystemParameters.MinimumHorizontalDragDistance
+                || Math.Abs(point.Y - origin.Y) >= SystemParameters.MinimumVerticalDragDistance)
             {
+                _pressedAt = null; e.Handled = true;
                 try { DragMove(); PositionChanged?.Invoke(Left, Top); } catch { }
             }
         };
+        surface.PreviewMouseLeftButtonUp += async (_, e) =>
+        {
+            bool click = _pressedAt != null; _pressedAt = null;
+            if (click && _sessionActive) { e.Handled = true; await _stop(); }
+        };
+        surface.MouseLeave += (_, _) => _pressedAt = null;
         Content = surface;
         _animation.Tick += (_, _) => Animate();
         SourceInitialized += (_, _) =>

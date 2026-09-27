@@ -22,7 +22,8 @@ while (await Console.In.ReadLineAsync() is { } line)
             loaded = request.ModelPath;
         }
         string result = "";
-        if (request.Operation is "transcribe" or "wake")
+        string? language = null;
+        if (request.Operation is "transcribe" or "wake" or "translate")
         {
             var pcm = request.Audio ?? throw new InvalidDataException();
             try
@@ -37,13 +38,26 @@ while (await Console.In.ReadLineAsync() is { } line)
                     if (gain > 1) for (int i = 0; i < samples.Length; i++) samples[i] *= gain;
                     var builder = factory!.CreateBuilder().WithLanguage(request.Language).WithNoContext()
                         .WithThreads(Math.Clamp(Environment.ProcessorCount / 2, 2, 8));
+                    if (request.Operation == "translate") builder.WithTranslate();
                     if (request.Operation == "wake") builder.WithSingleSegment().WithTemperature(0).WithTemperatureInc(0)
                         .WithPrompt("Eugenio.");
                     if (request.Operation == "wake") builder.WithAudioContextSize(Math.Max(512, TextPolicy.FastAudioContext(samples.Length)));
-                    else if (request.Mode == "fast") builder.WithAudioContextSize(TextPolicy.FastAudioContext(samples.Length));
+                    else if (request.Mode == "fast") builder.WithAudioContextSize(TextPolicy.FastAudioContext(samples.Length)).WithTemperature(0).WithTemperatureInc(0);
+                    if (request.Operation == "transcribe" && request.Mode == "fast" && samples.Length <= 6 * 16000) builder.WithSingleSegment();
+                    if (request.Operation == "transcribe" && samples.Length <= 6 * 16000)
+                        builder.WithPrompt("Buongiorno. Come stai? Can you help me? Email, e-mail, mail, Eugenio, ChatGPT, Claude, Codex, Marco, Luca. Lunedì, martedì, mercoledì, giovedì, venerdì, sabato, domenica. " + string.Join(", ", (request.Vocabulary ?? []).Where(x => x.Length <= 60).Take(40)));
                     using var processor = builder.Build();
                     var sb = new StringBuilder();
-                    await foreach (var segment in processor.ProcessAsync(samples)) sb.Append(segment.Text).Append(' ');
+                    await foreach (var segment in processor.ProcessAsync(samples)) { sb.Append(segment.Text).Append(' '); language ??= segment.Language; }
+                    // Automatic mode supports Italian and English. Short Italian phrases can
+                    // otherwise be misclassified as Portuguese: restrict that fallback only.
+                    if (request.Language == "auto" && language is not ("it" or "en"))
+                    {
+                        var detected = processor.DetectLanguageWithProbability(samples.AsSpan(), ["it", "en"]);
+                        language = detected.language ?? "it";
+                        processor.ChangeLanguage(language); sb.Clear();
+                        await foreach (var segment in processor.ProcessAsync(samples)) sb.Append(segment.Text).Append(' ');
+                    }
                     result = sb.ToString().Trim();
                     sb.Clear();
                 }
@@ -52,7 +66,7 @@ while (await Console.In.ReadLineAsync() is { } line)
             finally { Array.Clear(pcm); }
         }
         else if (request.Operation != "load") throw new InvalidDataException();
-        await Console.Out.WriteLineAsync(JsonSerializer.Serialize(new EngineResponse(request.Id, true, result, Milliseconds: watch.ElapsedMilliseconds)));
+        await Console.Out.WriteLineAsync(JsonSerializer.Serialize(new EngineResponse(request.Id, true, result, Milliseconds: watch.ElapsedMilliseconds, Language: language)));
     }
     catch (Exception ex)
     {

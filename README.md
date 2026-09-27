@@ -1,8 +1,18 @@
-# VoceLocale
+# Eugenio — dettatura e Notetaker
 
 App personale Windows x64 per dettare in italiano e inglese, correggere il parlato e inserire il risultato nel campo attivo. Whisper trascrive localmente; la correzione usa il MiniCPM installato in Ollama attraverso `127.0.0.1`. Audio e testo non vengono inviati a servizi cloud. Nessun account o Python richiesto.
 
-**Stato della consegna:** versione 1.3.11, badge mobile con mascotte animata e dettatura a blocchi. Il comando Eugenio usa Whisper base separato, lingua italiana e un suggerimento del nome; le finestre audio si sovrappongono e vengono raccolte anche durante il riconoscimento. Whisper small trascrive il dettato, con contesto adattato alla frase nella modalità Veloce. Le prove sintetiche bilingui conservano date e negazioni; i sei casi sintetici di attivazione/non attivazione passano. La verifica con la voce dell’utente e una misura dei falsi risvegli in ambiente reale restano necessarie. Dettagli e limiti delle misure in [docs/performance-1.3.11.md](docs/performance-1.3.11.md).
+**Versione 1.4.0:** badge mobile con mascotte animata, dettatura a blocchi, finestra dedicata **Eugenio Notetaker** e traduzione letterale in inglese. La dettatura usa Whisper small e MiniCPM; le riunioni usano Whisper base con audio in memoria a blocchi di massimo sei secondi, senza il limite di due minuti della dettatura. Traduzione e appunti vengono elaborati localmente in Ollama. I risultati originali compaiono prima delle traduzioni. Prove, tempi e limiti in [docs/meeting-1.4.0.md](docs/meeting-1.4.0.md). I modelli possono commettere errori: non viene garantita una traduzione impeccabile per qualsiasi parlato.
+
+## Meeting e traduzione
+
+Apri **Eugenio Notetaker** dall'icona Desktop, dal pulsante nelle impostazioni o dal menu dell'area di notifica. Scegli il microfono e premi **Avvia meeting**. L'indicatore conferma il segnale ricevuto; **Pausa** spegne il microfono, **Riprendi** riattiva la cattura e **Termina** completa i blocchi in coda. Il cronometro include le pause. Un solo meeting o dettato usa il microfono alla volta. Il Notetaker conserva il testo nella propria finestra e non scrive in altre applicazioni.
+
+Gli **Appunti automatici** usano `minicpm-assistente-it:latest`; puoi modificarli durante il meeting. **Aggiorna appunti** elabora soltanto i nuovi blocchi. Se i controlli rilevano cambiamenti di nomi, valori, date, negazioni o incertezze, vengono aggiunti estratti dell'originale con un avviso, invece del riepilogo non validato. Questi controlli sono conservativi e non provano l'equivalenza semantica universale.
+
+**Traduci letteralmente in inglese** usa il modello locale `translategemma:4b`. Va installato una volta con `ollama pull translategemma:4b` (circa 3,3 GB), poi funziona senza Internet. La traduzione conserva anche i ripensamenti: «cinquanta, scusa, quindici» mantiene entrambi i valori; non applica la riscrittura della dettatura. Il testo inglese già riconosciuto viene mantenuto. Un risultato non validato lascia l'originale e un avviso. Sulla CPU l'inglese può arrivare in ritardo; il contatore mostra la sua coda separata. **Termina** libera il microfono mentre le traduzioni residue continuano.
+
+**Salva** crea un file `.eugenio.json` riapribile o un'esportazione Markdown, contenenti appunti, originale, inglese già disponibile e timestamp; non contengono audio. Se salvi prima che l'inglese sia completato, salva di nuovo per includerlo. La riapertura ripristina anche il punto raggiunto nella generazione degli appunti. **Nuovo** e l'apertura di altri appunti mantengono il documento precedente in un'altra finestra. Chiudere la finestra la nasconde: puoi riaprirla dal menu; un meeting attivo continua e il badge resta rosso. **Esci** termina l'app: salva prima gli appunti che vuoi conservare. Non esistono cronologia o salvataggi automatici dei contenuti. Se scegli una cartella sincronizzata, la sincronizzazione del file è gestita dal relativo programma, per esempio OneDrive.
 
 ## Segnali visivi
 
@@ -14,7 +24,7 @@ La sprite sheet `App/assets/EugenioMascot.png` contiene quattro pose originali p
 
 ## Distribuzione aziendale (Windows/Intune)
 
-Le impostazioni dell’utente sono conservate in `%LOCALAPPDATA%\Eugenio`; l’app installata in `Program Files` non richiede permessi di scrittura. IT può predisporre una copia condivisa e sola lettura del solo modello Whisper in `%ProgramData%\Eugenio\models`. La riscrittura usa un’installazione aziendale di Ollama e un tag MiniCPM locale predisposto da IT. Disinstallare l’app non cancella modelli né impostazioni.
+Le impostazioni dell’utente sono conservate in `%LOCALAPPDATA%\Eugenio`; l’app installata in `Program Files` non richiede permessi di scrittura. IT può predisporre copie verificate e in sola lettura dei modelli Whisper in `%ProgramData%\Eugenio\models`. Riscrittura, appunti e traduzione usano Ollama locale e i modelli predisposti da IT. Disinstallare l’app non cancella modelli né impostazioni.
 
 Per creare il contenuto Win32 Intune, prima pubblica l’app self-contained (dalla cartella sorgente):
 
@@ -51,9 +61,9 @@ Ogni blocco è inserito come singolo paragrafo: a capo e tabulazioni vengono sos
 ## Privacy
 
 - Audio PCM, trascrizione e risultato vengono gestiti in memoria; l’app non crea registrazioni, cronologia o log del contenuto.
-- Si salvano soltanto impostazioni e modelli in `%LOCALAPPDATA%\Eugenio`; i modelli predisposti da IT possono risiedere in `%ProgramData%\Eugenio\models`.
+- Si salvano impostazioni e modelli in `%LOCALAPPDATA%\Eugenio`; i modelli predisposti da IT possono risiedere in `%ProgramData%\Eugenio\models`. Appunti e trascrizione del Notetaker vengono salvati soltanto con **Salva**, nella destinazione scelta.
 - I due motori comunicano con l’interfaccia tramite pipe anonime del sistema, non tramite server o porte di rete.
-- Il download esplicito dei modelli è l’unica funzione di rete implementata. L’inferenza non effettua richieste HTTP.
+- Whisper usa pipe locali; MiniCPM e TranslateGemma ricevono il testo corrente via HTTP esclusivamente su `127.0.0.1:11434`, il servizio Ollama sullo stesso PC. Dopo l'installazione dei modelli non è necessario Internet. L'app non apre nuovi server né invia contenuti a endpoint remoti.
 - Per riconoscere il campo vengono letti solo identità, focus e proprietà di accessibilità; non vengono letti testo della pagina, conversazioni o contenuti circostanti.
 - Le osservazioni di tastiera e mouse servono soltanto per scorciatoie, annullamento e rilevamento di attività. Non viene raccolta una sequenza di tasti.
 - Gli appunti non sono usati nell’inserimento automatico. **Copia esplicitamente** è un’azione volontaria; l’app richiede a Windows di escluderla da cronologia e sincronizzazione, ma altri gestori di appunti possono comunque osservarla.
@@ -66,7 +76,7 @@ Windows x64, processore moderno e circa 8 GB di memoria libera consigliati. La m
 
 Campi password riconosciuti, campi in sola lettura e processi amministrativi vengono rifiutati. Alcuni editor personalizzati non espongono un campo accessibile compatibile: in quel caso il testo va recuperato manualmente. Il riconoscimento non garantisce compatibilità con ogni editor web o app. La selezione presente nel campo può essere sostituita dal normale comportamento di digitazione.
 
-Le correzioni riguardano solo la registrazione corrente. Non sono inclusi comandi di modifica di testi precedenti, traduzione, formattazione ricca, sincronizzazione, account o aggiornamenti automatici.
+Le correzioni riguardano solo la registrazione corrente. Non sono inclusi comandi di modifica di testi precedenti, formattazione ricca, sincronizzazione, account o aggiornamenti automatici. La traduzione supportata è italiano → inglese; l'inglese resta invariato.
 
 **Distribuzione non firmata:** durante lo sviluppo alcune esecuzioni sono state bloccate dalla policy Windows `VerifiedAndReputableDesktop` (`0x800711C7`, evento 3077). L’ultima esecuzione locale autorizzata dei motori della build finale è riuscita; nessuna policy è stata modificata. Questo non garantisce l’autorizzazione su altri PC o per future ricompilazioni. Se Windows blocca una build, occorre una firma attendibile o il percorso di approvazione dell’amministratore. Non è stato trovato un certificato di firma del codice valido con chiave privata nello store personale dell’utente. Consultare `VERIFICA.md` per le prove eseguite.
 
@@ -75,7 +85,9 @@ Le correzioni riguardano solo la registrazione corrente. Non sono inclusi comand
 | Modello | File | Dimensione | SHA-256 |
 |---|---|---:|---|
 | Whisper multilingual small | `ggml-small.bin` | 487601967 byte | `1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b` |
+| Whisper multilingual base | `ggml-base.bin` | 147951465 byte | `60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe` |
 | MiniCPM personalizzato (Ollama) | `minicpm-assistente-it:latest` | gestito da Ollama | il digest Ollama si controlla in `ollama list` |
+| TranslateGemma 4B (Ollama) | `translategemma:4b` | circa 3,3 GB | digest della versione provata: `c49d986b0764f5881c476eb21435bb62b7abc62347aab3d4a6071e811be510a1` |
 
 Fonte Whisper: [repository whisper.cpp](https://huggingface.co/ggerganov/whisper.cpp). Eugenio non scarica né accede ai file interni dei modelli Ollama: richiede il nome del tag via API locale e invia soltanto la trascrizione corrente all’endpoint loopback. L’installazione di Ollama deve essere avviata localmente.
 

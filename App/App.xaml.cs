@@ -8,6 +8,7 @@ public partial class App : System.Windows.Application
     private const string ActivationEventName = @"Local\VoceLocale.Activate.v1";
     private Mutex? _instance;
     private EventWaitHandle? _activationEvent;
+    private EventWaitHandle? _meetingActivationEvent;
     private DispatcherTimer? _activationTimer;
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -17,7 +18,7 @@ public partial class App : System.Windows.Application
         {
             try
             {
-                using var activation = EventWaitHandle.OpenExisting(ActivationEventName);
+                using var activation = EventWaitHandle.OpenExisting(e.Args.Contains("--meeting") ? @"Local\Eugenio.Notetaker.Activate.v1" : ActivationEventName);
                 activation.Set();
             }
             catch (WaitHandleCannotBeOpenedException)
@@ -28,18 +29,21 @@ public partial class App : System.Windows.Application
             return;
         }
         _activationEvent = new EventWaitHandle(false, EventResetMode.AutoReset, ActivationEventName);
+        _meetingActivationEvent = new EventWaitHandle(false, EventResetMode.AutoReset, @"Local\Eugenio.Notetaker.Activate.v1");
         DispatcherUnhandledException += (_, args) =>
         {
             args.Handled = true;
             if (MainWindow is MainWindow window) window.HandleUnexpectedError();
         };
         var main = new MainWindow();
+        if (e.Args.Contains("--meeting")) main.Loaded += (_, _) => main.ShowMeeting();
         MainWindow = main;
         main.Show();
         _activationTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
         _activationTimer.Tick += (_, _) =>
         {
             if (_activationEvent?.WaitOne(0) == true) main.ShowSettings();
+            if (_meetingActivationEvent?.WaitOne(0) == true) main.ShowMeeting();
         };
         _activationTimer.Start();
     }
@@ -47,6 +51,7 @@ public partial class App : System.Windows.Application
     {
         _activationTimer?.Stop();
         _activationEvent?.Dispose();
+        _meetingActivationEvent?.Dispose();
         _instance?.Dispose();
         base.OnExit(e);
     }

@@ -9,6 +9,8 @@ VoceLocale è un’app personale indipendente; non è affiliata a Wispr Flow.
 | Whisper.net / Runtime | 1.9.1 | MIT | https://github.com/sandrohanea/whisper.net |
 | whisper.cpp | runtime incluso in Whisper.net | MIT | https://github.com/ggml-org/whisper.cpp |
 | Whisper small | multilingual | MIT | https://github.com/openai/whisper |
+| Whisper base | multilingual | MIT | https://github.com/openai/whisper |
+| TranslateGemma 4B | `translategemma:4b`, Q4_K_M, Ollama | Gemma Terms of Use | https://huggingface.co/google/translategemma-4b-it |
 | LLamaSharp / Backend.Cpu | 0.27.0 | MIT | https://github.com/SciSharp/LLamaSharp |
 | llama.cpp | runtime incluso in LLamaSharp | MIT | https://github.com/ggml-org/llama.cpp |
 | MiniCPM5-2B-GGUF | Q4_K_M | Apache-2.0 | https://huggingface.co/openbmb/MiniCPM5-2B-GGUF |
