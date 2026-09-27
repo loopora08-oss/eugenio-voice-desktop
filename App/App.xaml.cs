@@ -13,9 +13,11 @@ public partial class App : System.Windows.Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
-        _instance = new Mutex(true, @"Local\VoceLocale.Personal.v1", out bool first);
+        bool preview = e.Args.Contains("--preview");
+        _instance = new Mutex(true, preview ? @"Local\Eugenio.Preview.v1" : @"Local\VoceLocale.Personal.v1", out bool first);
         if (!first)
         {
+            if (preview) { Shutdown(); return; }
             try
             {
                 using var activation = EventWaitHandle.OpenExisting(e.Args.Contains("--meeting") ? @"Local\Eugenio.Notetaker.Activate.v1" : ActivationEventName);
@@ -28,17 +30,26 @@ public partial class App : System.Windows.Application
             Shutdown();
             return;
         }
-        _activationEvent = new EventWaitHandle(false, EventResetMode.AutoReset, ActivationEventName);
-        _meetingActivationEvent = new EventWaitHandle(false, EventResetMode.AutoReset, @"Local\Eugenio.Notetaker.Activate.v1");
+        if (!preview)
+        {
+            _activationEvent = new EventWaitHandle(false, EventResetMode.AutoReset, ActivationEventName);
+            _meetingActivationEvent = new EventWaitHandle(false, EventResetMode.AutoReset, @"Local\Eugenio.Notetaker.Activate.v1");
+        }
         DispatcherUnhandledException += (_, args) =>
         {
             args.Handled = true;
             if (MainWindow is MainWindow window) window.HandleUnexpectedError();
+            else
+            {
+                MessageBox.Show($"Avvio di Eugenio non riuscito: {args.Exception.GetType().Name} (0x{args.Exception.HResult:X8}).", "Eugenio · avvio non riuscito");
+                Shutdown(-1);
+            }
         };
-        var main = new MainWindow();
+        var main = new MainWindow(preview);
         if (e.Args.Contains("--meeting")) main.Loaded += (_, _) => main.ShowMeeting();
         MainWindow = main;
         main.Show();
+        if (preview) return;
         _activationTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
         _activationTimer.Tick += (_, _) =>
         {

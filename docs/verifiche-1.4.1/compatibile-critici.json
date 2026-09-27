@@ -1,0 +1,122 @@
+{
+  "synthetic": true,
+  "mode": "adaptive",
+  "model": "ggml-small.bin",
+  "loadMilliseconds": 483,
+  "wordErrors": 0,
+  "referenceWords": 108,
+  "normalizedWer": 0,
+  "milliseconds": 12937,
+  "results": [
+    {
+      "file": "translation-0.wav",
+      "chunks": false,
+      "ok": true,
+      "wordErrors": 0,
+      "referenceWords": 8,
+      "milliseconds": 840,
+      "wallMilliseconds": 865,
+      "text": "Sono 50, scusa, 15 euro. Non voglio annullare.",
+      "reference": "Sono cinquanta, scusa, quindici euro. Non voglio annullare."
+    },
+    {
+      "file": "translation-0.wav",
+      "chunks": true,
+      "ok": true,
+      "wordErrors": 0,
+      "referenceWords": 8,
+      "milliseconds": 673,
+      "wallMilliseconds": 679,
+      "text": "Sono 50, scusa, 15 euro. Non voglio annullare.",
+      "reference": "Sono cinquanta, scusa, quindici euro. Non voglio annullare."
+    },
+    {
+      "file": "translation-1.wav",
+      "chunks": false,
+      "ok": true,
+      "wordErrors": 0,
+      "referenceWords": 9,
+      "milliseconds": 661,
+      "wallMilliseconds": 664,
+      "text": "scrivi una mail a Marco. Quanto fa 2\u002B2?",
+      "reference": "Scrivi una mail a Marco. Quanto fa due pi\u00F9 due?"
+    },
+    {
+      "file": "translation-1.wav",
+      "chunks": true,
+      "ok": true,
+      "wordErrors": 0,
+      "referenceWords": 9,
+      "milliseconds": 759,
+      "wallMilliseconds": 761,
+      "text": "scrivi una mail a Marco. Quanto fa 2\u002B2?",
+      "reference": "Scrivi una mail a Marco. Quanto fa due pi\u00F9 due?"
+    },
+    {
+      "file": "translation-2.wav",
+      "chunks": false,
+      "ok": true,
+      "wordErrors": 0,
+      "referenceWords": 7,
+      "milliseconds": 637,
+      "wallMilliseconds": 641,
+      "text": "Sei disponibile? Non ho mai visto Luca.",
+      "reference": "Sei disponibile? Non ho mai visto Luca."
+    },
+    {
+      "file": "translation-2.wav",
+      "chunks": true,
+      "ok": true,
+      "wordErrors": 0,
+      "referenceWords": 7,
+      "milliseconds": 629,
+      "wallMilliseconds": 630,
+      "text": "Sei disponibile? Non ho mai visto Luca.",
+      "reference": "Sei disponibile? Non ho mai visto Luca."
+    },
+    {
+      "file": "it-correction.wav",
+      "chunks": false,
+      "ok": true,
+      "wordErrors": 0,
+      "referenceWords": 13,
+      "milliseconds": 2969,
+      "wallMilliseconds": 2975,
+      "text": "Ci vediamo marted\u00EC, no, intendevo gioved\u00EC alle tre.  Non voglio annullare la prenotazione.",
+      "reference": "Ci vediamo marted\u00EC, no, intendevo gioved\u00EC alle tre. Non voglio annullare la prenotazione."
+    },
+    {
+      "file": "it-correction.wav",
+      "chunks": true,
+      "ok": true,
+      "wordErrors": 0,
+      "referenceWords": 13,
+      "milliseconds": 1591,
+      "wallMilliseconds": 1595,
+      "text": "Ci vediamo marted\u00EC, no, intendevo, gioved\u00EC alle tre. Non voglio annullare la prenotazione.",
+      "reference": "Ci vediamo marted\u00EC, no, intendevo gioved\u00EC alle tre. Non voglio annullare la prenotazione."
+    },
+    {
+      "file": "en-correction.wav",
+      "chunks": false,
+      "ok": true,
+      "wordErrors": 0,
+      "referenceWords": 17,
+      "milliseconds": 2763,
+      "wallMilliseconds": 2766,
+      "text": "Let us meet on Tuesday, no, Thursday at 3.  I do not want to cancel the reservation.",
+      "reference": "Let us meet on Tuesday, no, Thursday at three. I do not want to cancel the reservation."
+    },
+    {
+      "file": "en-correction.wav",
+      "chunks": true,
+      "ok": true,
+      "wordErrors": 0,
+      "referenceWords": 17,
+      "milliseconds": 1415,
+      "wallMilliseconds": 1419,
+      "text": "Let us meet on Tuesday. No. Thursday at 3. I do not want to cancel the reservation.",
+      "reference": "Let us meet on Tuesday, no, Thursday at three. I do not want to cancel the reservation."
+    }
+  ]
+}

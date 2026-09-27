@@ -6,6 +6,8 @@ App personale Windows x64 per dettare in italiano e inglese, correggere il parla
 
 ## Meeting e traduzione
 
+Il pacchetto compatibile consegnato su questo PC combina l'app 1.4.1 con WhisperWorker 1.4.0 già funzionante e invariato. Il nuovo worker nel sorgente aggiunge una cache di due modelli e il dizionario sulle frasi lunghe, ma richiede una firma accettata dal criterio Windows locale prima della sua distribuzione. La gestione adattiva, le pause e le correzioni immediate funzionano anche con il worker precedente.
+
 Apri **Eugenio Notetaker** dall'icona Desktop, dal pulsante nelle impostazioni o dal menu dell'area di notifica. Scegli il microfono e premi **Avvia meeting**. L'indicatore conferma il segnale ricevuto; **Pausa** spegne il microfono, **Riprendi** riattiva la cattura e **Termina** completa i blocchi in coda. Il cronometro include le pause. Un solo meeting o dettato usa il microfono alla volta. Il Notetaker conserva il testo nella propria finestra e non scrive in altre applicazioni.
 
 Gli **Appunti automatici** usano `minicpm-assistente-it:latest`; puoi modificarli durante il meeting. **Aggiorna appunti** elabora soltanto i nuovi blocchi. Se i controlli rilevano cambiamenti di nomi, valori, date, negazioni o incertezze, vengono aggiunti estratti dell'originale con un avviso, invece del riepilogo non validato. Questi controlli sono conservativi e non provano l'equivalenza semantica universale.

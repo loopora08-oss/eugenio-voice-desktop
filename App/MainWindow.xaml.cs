@@ -14,6 +14,7 @@ namespace VoceLocale;
 
 public partial class MainWindow : Window
 {
+    private readonly bool _previewOnly;
     private Settings _settings = Storage.LoadSettings();
     private readonly EngineClient _whisper = new("WhisperWorker", realtime: true);
     private readonly EngineClient _wakeWhisper = new("WhisperWorker");
@@ -43,8 +44,9 @@ public partial class MainWindow : Window
     private bool _ready, _busy, _recording, _closing, _recoveryArmed, _manualOnly, _hotkeyAvailable, _wakeListening, _initialLoadStarted;
     private string _shortcutNotice = "";
 
-    public MainWindow()
+    public MainWindow(bool previewOnly = false)
     {
+        _previewOnly = previewOnly;
         InitializeComponent();
         _badge = new BadgeWindow(ShowSettings, ToggleAsync);
         _badge.RestorePosition(_settings.BadgeLeft, _settings.BadgeTop);
@@ -81,6 +83,12 @@ public partial class MainWindow : Window
         {
             if (_initialLoadStarted) return;
             _initialLoadStarted = true;
+            if (_previewOnly)
+            {
+                SettingsPanel.IsEnabled = ModelPanel.IsEnabled = false;
+                Status("Anteprima dell’interfaccia", "Microfono e scorciatoie disattivati. La sessione già aperta rimane disponibile.");
+                return;
+            }
             Hide();
             _badge.Show();
             await VerifyModelsAsync();
@@ -89,6 +97,7 @@ public partial class MainWindow : Window
     }
     private void InitializeDesktop()
     {
+        if (_previewOnly) return;
         try
         {
             var badgeHandle = new WindowInteropHelper(_badge).EnsureHandle();
@@ -151,7 +160,7 @@ public partial class MainWindow : Window
         {
             window = new MeetingWindow(() => _settings, () =>
             {
-                if (_recording || _busy || _setup != null || _pending.Length > 0 || _meetingHeld) return false;
+                if (_previewOnly || _recording || _busy || _setup != null || _pending.Length > 0 || _meetingHeld) return false;
                 _meetingHeld = true; _wake.Stop(); _wakeListening = false; _badge.SetListening(false);
                 SettingsPanel.IsEnabled = ModelPanel.IsEnabled = false; return true;
             }, () =>
