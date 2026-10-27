@@ -1,0 +1,2 @@
+# Il template è un input del modello: preservare LF e righe finali intenzionali.
+models/ollama-template.txt text eol=lf whitespace=-blank-at-eof

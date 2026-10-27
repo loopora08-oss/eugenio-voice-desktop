@@ -46,7 +46,11 @@ public partial class App : System.Windows.Application
             }
         };
         var main = new MainWindow(preview);
-        if (e.Args.Contains("--meeting")) main.Loaded += (_, _) => main.ShowMeeting();
+        if (e.Args.Contains("--meeting")) main.Loaded += (_, _) =>
+        {
+            var meeting = main.ShowMeeting();
+            if (preview && e.Args.Contains("--compact")) { meeting.Width = 880; meeting.Height = 620; }
+        };
         MainWindow = main;
         main.Show();
         if (preview) return;

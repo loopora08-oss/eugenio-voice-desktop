@@ -29,6 +29,7 @@ public partial class MeetingWindow : Window
     private long _lastNotesAt;
     private string? _path;
     private volatile bool _translationEnabled;
+    private string? _captureFailure;
     private Task? _notesRunning;
     private Task? _translationsFinishing, _stopRunning, _startRunning;
     private readonly CancellationTokenSource _windowLife = new();
@@ -73,9 +74,11 @@ public partial class MeetingWindow : Window
             return;
         }
         if (MicrophoneBox.SelectedIndex < 0) { StateLabel.Text = "Seleziona un microfono disponibile."; return; }
+        if (RecordingConsentBox.IsChecked != true) { StateLabel.Text = "Prima di registrare, informa i partecipanti e conferma il loro consenso."; return; }
         if (!_acquireMicrophone()) { StateLabel.Text = "Termina prima la dettatura o l’elaborazione in corso."; return; }
         _starting = true; StartButton.IsEnabled = NewButton.IsEnabled = false; MicrophoneBox.IsEnabled = false;
-        SpeechProfileBox.IsEnabled = MeetingLanguageBox.IsEnabled = false;
+        _captureFailure = null;
+        SpeechProfileBox.IsEnabled = MeetingLanguageBox.IsEnabled = SystemAudioBox.IsEnabled = RecordingConsentBox.IsEnabled = false;
         StopButton.IsEnabled = true;
         StateLabel.Text = "Preparazione del meeting…";
         CaptureStateChanged?.Invoke("Meeting · preparazione, microfono spento", false, "processing");
@@ -87,7 +90,7 @@ public partial class MeetingWindow : Window
             if (!baseAvailable && !smallAvailable) throw new InvalidDataException("Whisper mancante: scarica i modelli dalle impostazioni di Eugenio.");
             string profile = ((System.Windows.Controls.ComboBoxItem)SpeechProfileBox.SelectedItem).Tag.ToString()!;
             string language = ((System.Windows.Controls.ComboBoxItem)MeetingLanguageBox.SelectedItem).Tag.ToString()!;
-            string? lastLanguage = null;
+            var lastLanguages = new Dictionary<MeetingAudioSource, string?>();
             var model = SpeechProfile.Choose(profile, 7 * 32000, baseAvailable, smallAvailable, language);
             var loaded = await _whisper.RunAsync(new(Guid.NewGuid().ToString(), "load", Storage.ModelPath(model)), _lifetime.Token);
             if (!loaded.Ok) throw new IOException("Motore meeting non disponibile.");
@@ -97,10 +100,11 @@ public partial class MeetingWindow : Window
             _stream = new MeetingStream(
                 async (chunk, token) =>
                 {
-                    var selected = SpeechProfile.Choose(profile, chunk.Audio.Length, baseAvailable, smallAvailable, language == "auto" ? lastLanguage : language);
+                    var selected = SpeechProfile.Choose(profile, chunk.Audio.Length, baseAvailable, smallAvailable, language == "auto" ? lastLanguages.GetValueOrDefault(chunk.Source) : language);
                     var result = await _whisper.RunAsync(new(Guid.NewGuid().ToString(), "transcribe", Storage.ModelPath(selected), language, chunk.Audio, Mode: SpeechProfile.DecoderMode(profile), Vocabulary: settings.Vocabulary), token);
-                    if (result.Ok) lastLanguage = result.Language;
-                    return result;
+                    if (result.Ok) lastLanguages[chunk.Source] = result.Language;
+                    return result.Ok ? result with { Provenance = new RecognitionProvenance(selected.FileName, selected.Sha256,
+                        RecognitionProvenance.WhisperEngineVersion, SpeechProfile.DecoderMode(profile), language, DateTimeOffset.UtcNow) } : result;
                 },
                 async (source, language, token) =>
                 {
@@ -112,7 +116,7 @@ public partial class MeetingWindow : Window
             _stream.QueueChanged += count => Dispatcher.BeginInvoke(new Action(() => FooterLabel.Text = $"{count} blocchi in elaborazione · nessun limite di un’ora · Salva conserva appunti e trascrizione, mai audio"));
             _stream.TranslationQueueChanged += count => Dispatcher.BeginInvoke(new Action(() => FooterLabel.Text = $"{_stream?.PendingChunks ?? 0} blocchi vocali · {count} traduzioni in coda · Salva conserva appunti e trascrizione, mai audio"));
             _stream.Fault += reason => Dispatcher.BeginInvoke(new Action(async () => { StateLabel.Text = reason; await StopAsync(); }));
-            _recorder = new MeetingRecorder();
+            _recorder = new MeetingRecorder(SystemAudioBox.IsChecked == true);
             _recorder.ChunkReady += chunk =>
             {
                 if (!_stream.Submit(chunk, _translationEnabled)) _ = Dispatcher.BeginInvoke(new Action(async () => { StateLabel.Text = "Elaborazione in ritardo: cattura fermata, recupero dei blocchi in coda."; await StopAsync(); }));
@@ -123,7 +127,13 @@ public partial class MeetingWindow : Window
                 MicrophoneLevel.Value = Math.Clamp(rms / 500, 0, 1); LevelLabel.Text = rms >= AudioSignal.MinimumSpeechRms ? "Ti sento" : "In ascolto";
                 InputLevelChanged?.Invoke(rms);
             }));
-            _recorder.DeviceFailed += () => Dispatcher.BeginInvoke(new Action(async () => { StateLabel.Text = "Microfono scollegato: chiusura e recupero dei blocchi."; await StopAsync(); }));
+            _recorder.DeviceFailed += () => Dispatcher.BeginInvoke(new Action(async () =>
+            {
+                _captureFailure = "Una sorgente audio è diventata indisponibile. Controlla microfono e uscita PC; verifica gli ultimi intervalli prima di riprovare.";
+                StateLabel.Text = _captureFailure;
+                await StopAsync();
+                StateLabel.Text = _captureFailure;
+            }));
             _recorder.Start(MicrophoneBox.SelectedIndex);
             _time.Restart(); _clock.Start(); _paused = false; _starting = false;
             PauseButton.IsEnabled = StopButton.IsEnabled = true;
@@ -136,22 +146,25 @@ public partial class MeetingWindow : Window
             _starting = false; _recorder?.Dispose(); _recorder = null; _stream?.Dispose(); _stream = null;
             PauseButton.IsEnabled = StopButton.IsEnabled = false;
             _lifetime?.Dispose(); _lifetime = null; StartButton.IsEnabled = NewButton.IsEnabled = MicrophoneBox.IsEnabled = true; _releaseMicrophone();
-            SpeechProfileBox.IsEnabled = MeetingLanguageBox.IsEnabled = true;
+            SpeechProfileBox.IsEnabled = MeetingLanguageBox.IsEnabled = SystemAudioBox.IsEnabled = RecordingConsentBox.IsEnabled = true;
         }
     }
     private void AddEntry(MeetingEntry entry)
     {
         _document.Entries.Add(entry); _captions.Add(ToCaption(entry));
-        TranscriptList.ScrollIntoView(_captions.Last()); CountLabel.Text = $"{_captions.Count} blocchi";
+        if (string.IsNullOrWhiteSpace(SearchBox.Text)) TranscriptList.ScrollIntoView(_captions.Last());
+        CountLabel.Text = $"{_captions.Count} blocchi";
+        ScheduleSearch(false);
     }
     private void UpdateEntry(MeetingEntry entry)
     {
         int index = _document.Entries.FindIndex(x => x.Sequence == entry.Sequence);
         if (index < 0) return;
         _document.Entries[index] = entry; _captions[index] = ToCaption(entry);
+        ScheduleSearch(false);
     }
     private static Caption ToCaption(MeetingEntry entry) => new(
-        TimeSpan.FromSeconds(entry.StartSeconds).ToString(@"hh\:mm\:ss"), entry.Original,
+        TimeSpan.FromSeconds(entry.StartSeconds).ToString(@"hh\:mm\:ss") + (entry.Source == MeetingAudioSource.System ? " · Audio PC · parlante non identificato" : " · Microfono"), entry.Original,
         entry.English ?? (entry.TranslationRequested && entry.Warning == null ? "Traduzione in corso…" : ""), entry.Warning ?? "", entry.Sequence);
     private async void PauseMeeting(object sender, RoutedEventArgs e)
     {
@@ -199,7 +212,7 @@ public partial class MeetingWindow : Window
             await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Background);
             _document.DurationSeconds = _time.Elapsed.TotalSeconds;
             if (AutomaticNotesBox.IsChecked == true) await GenerateNotesAsync();
-            StateLabel.Text = _stream?.PendingTranslations > 0 ? "Meeting terminato · inglese ancora in elaborazione" : "Meeting terminato · appunti e trascrizione disponibili";
+            StateLabel.Text = _captureFailure ?? (_stream?.PendingTranslations > 0 ? "Meeting terminato · inglese ancora in elaborazione" : "Meeting terminato · appunti e trascrizione disponibili");
         }
         catch { StateLabel.Text = "Meeting terminato con un errore. Verifica gli intervalli segnalati."; }
         finally
@@ -209,14 +222,14 @@ public partial class MeetingWindow : Window
             _lifetime?.Cancel(); _lifetime?.Dispose(); _lifetime = null;
             _finishing = _paused = false; MicrophoneLevel.Value = 0; InputLevelChanged?.Invoke(0); LevelLabel.Text = "Microfono spento";
             StartButton.IsEnabled = NewButton.IsEnabled = MicrophoneBox.IsEnabled = true; _whisper.Stop(); _releaseMicrophone();
-            SpeechProfileBox.IsEnabled = MeetingLanguageBox.IsEnabled = true;
+            SpeechProfileBox.IsEnabled = MeetingLanguageBox.IsEnabled = SystemAudioBox.IsEnabled = RecordingConsentBox.IsEnabled = true;
         }
     }
     private async Task FinishTranslationsAsync(MeetingStream stream)
     {
         await stream.TranslationCompletion;
         await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Background);
-        if (!_close && !_windowLife.IsCancellationRequested) { FooterLabel.Text = "Elaborazione completata · Salva per conservare anche le traduzioni aggiunte"; if (_recorder == null && !_starting) StateLabel.Text = "Meeting terminato · appunti e trascrizione disponibili"; }
+        if (!_close && !_windowLife.IsCancellationRequested) { FooterLabel.Text = "Elaborazione completata · Salva per conservare anche le traduzioni aggiunte"; if (_recorder == null && !_starting) StateLabel.Text = _captureFailure ?? "Meeting terminato · appunti e trascrizione disponibili"; }
         stream.Dispose(); if (ReferenceEquals(_stream, stream)) _stream = null;
     }
     private async void GenerateNotes(object sender, RoutedEventArgs e) => await GenerateNotesAsync();
@@ -268,7 +281,7 @@ public partial class MeetingWindow : Window
         {
             _document.Title = TitleBox.Text; _document.Notes = NotesBox.Text; _document.NotedEntries = _notedEntries;
             if (Active) _document.DurationSeconds = _time.Elapsed.TotalSeconds;
-            string data = dialog.FilterIndex == 2 ? _document.Markdown() : JsonSerializer.Serialize(_document, new JsonSerializerOptions { WriteIndented = true });
+            string data = dialog.FilterIndex == 2 ? _document.Markdown() : _document.Json();
             string path = dialog.FileName;
             if (dialog.FilterIndex == 2 && !path.EndsWith(".md", StringComparison.OrdinalIgnoreCase)) path = path.EndsWith(".eugenio.json", StringComparison.OrdinalIgnoreCase) ? path[..^13] + ".md" : Path.ChangeExtension(path, ".md");
             if (!path.Equals(dialog.FileName, StringComparison.OrdinalIgnoreCase) && File.Exists(path)
@@ -302,11 +315,14 @@ public partial class MeetingWindow : Window
         _document = doc; _path = path; _captions.Clear(); foreach (var entry in doc.Entries) _captions.Add(ToCaption(entry));
         NotesBox.Text = doc.Notes; TitleBox.Text = doc.Title; TimerLabel.Text = TimeSpan.FromSeconds(doc.DurationSeconds).ToString(@"hh\:mm\:ss");
         _notedEntries = doc.NotedEntries ?? (string.IsNullOrWhiteSpace(doc.Notes) ? 0 : doc.Entries.Count); CountLabel.Text = $"{_captions.Count} blocchi"; StateLabel.Text = "Appunti aperti · microfono spento";
+        ScheduleSearch(true);
     }
     private void NewDocument(object sender, RoutedEventArgs e) { if (!Active) NewDocumentRequested?.Invoke(); }
     public async Task ShutdownAsync()
     {
         _windowLife.Cancel(); _lifetime?.Cancel(); await StopAsync();
+        _searchCancellation?.Cancel();
+        if (_searchRunning != null) await _searchRunning;
         _stream?.Dispose();
         if (_translationsFinishing != null) await _translationsFinishing;
         if (_notesRunning != null) await _notesRunning;

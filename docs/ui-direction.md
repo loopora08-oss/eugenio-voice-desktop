@@ -1,0 +1,11 @@
+# Direzione UI — modifica Notetaker 1.5
+
+Skill applicata: design-taste-frontend, flusso app-screens, adattato al prodotto WPF esistente. Non è un redesign completo: conservati marchio Eugenio, Segoe UI, palette e flussi precedenti. I controlli browser della skill non misurano WPF; la verifica visiva è desktop, con limiti registrati nel rapporto della versione.
+
+Domanda principale: sto acquisendo le persone giuste e posso leggere ciò che è stato detto? Pubblico: utente Windows che lavora in appunti per decine di minuti. Oggetti: sessione, sorgente microfono/audio PC, segmenti con tempi, testo originale, traduzione, avvisi e note. Conteggi reali, nessun dato di utilizzo inventato. L'azione principale rimane Avvia/Pausa/Termina.
+
+La nuova scelta di sorgente sta accanto ai controlli di registrazione. È disabilitata durante avvio/cattura/pausa e riabilitata alla chiusura. Consenso prima della cattura, disclosure persistente e spiegazione del loopback predefinito. Le etichette distinguono sorgente da persona: Audio PC non equivale a un nome di parlante. Rischio eco dichiarato, cuffie consigliate finché manca una soppressione collaudata.
+
+I nuovi elementi usano risorse per colore/spaziatura e controlli WPF con focus/tastiera nativi. Verificare finestra larga e minima, testo a capo, stato vuoto, errore e controlli disabilitati; nessuna animazione nuova introdotta. Versione mobile non dichiarata dal client Windows.
+
+Ricerca nella preview.4: mantengo la direzione già estratta `true-black-flat`, seed 350151119, adattata alla palette/Segoe UI esistenti. Domanda secondaria: dove è stato detto questo? Campo con etichetta sopra la trascrizione, contatore di blocchi corrispondenti e navigazione avanti/indietro; selezione con bordo e posizione testuale, nessun filtro che nasconda il contesto. Il dataset di QA è esclusivamente sintetico e vive in `.artifacts/search-fixture.eugenio.json`, escluso dalla distribuzione. Prova desktop a 880×620: campo e azioni leggibili, risultato portato in vista. A questa altezza compare circa un blocco per volta: limite di densità esplicito, finestra ampia consigliata per rileggere lunghi passaggi. Nessun controllo web della skill presentato come prova del client nativo.

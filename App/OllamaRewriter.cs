@@ -12,9 +12,14 @@ namespace VoceLocale;
 public sealed class OllamaRewriter : IDisposable
 {
     private static readonly Uri Endpoint = new("http://127.0.0.1:11434/");
-    private readonly HttpClient _http = new(new HttpClientHandler { UseProxy = false })
-        { BaseAddress = Endpoint, Timeout = Timeout.InfiniteTimeSpan };
+    private readonly HttpClient _http;
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+
+    public OllamaRewriter(HttpMessageHandler? handler = null)
+    {
+        _http = new(handler ?? new HttpClientHandler { UseProxy = false })
+            { BaseAddress = Endpoint, Timeout = Timeout.InfiniteTimeSpan };
+    }
 
     public async Task<IReadOnlyList<string>> GetModelsAsync(CancellationToken token)
     {
@@ -26,14 +31,14 @@ public sealed class OllamaRewriter : IDisposable
             .Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToArray();
     }
 
-    public async Task<(bool Ok, string? Text, long Milliseconds)> RewriteAsync(
+    public async Task<RewriteResult> RewriteAsync(
         string model, string original, string mode, string[]? vocabulary, CancellationToken token)
     {
         var watch = Stopwatch.StartNew();
         if (string.IsNullOrWhiteSpace(original) || original.Length > TextPolicy.MaxInputCharacters)
-            return (false, null, watch.ElapsedMilliseconds);
+            return new(false, null, watch.ElapsedMilliseconds);
         if (mode != "code" && DictationEdits.TryResolve(original, vocabulary, out var immediate))
-            return (true, immediate, watch.ElapsedMilliseconds);
+            return new(true, immediate, watch.ElapsedMilliseconds);
         bool correction = TextPolicy.HasCorrection(original);
         bool english = Regex.IsMatch(original, @"\b(?:let|let's|the|we|please|I|not|Thursday|Tuesday)\b", RegexOptions.IgnoreCase)
             && !Regex.IsMatch(original, @"\b(?:non|voglio|giovedì|martedì|ci|vediamo|scusa|intendevo)\b", RegexOptions.IgnoreCase);
@@ -76,14 +81,15 @@ public sealed class OllamaRewriter : IDisposable
         var request = new ChatRequest(model, messages.ToArray(), Stream: false, Think: false,
             Options: new ChatOptions(Temperature: 0, TopP: 0.8, NumPredict: Math.Clamp(original.Length / 2 + 64, 128, 2048), Seed: 42), KeepAlive: "30m");
         using var response = await _http.PostAsJsonAsync("api/chat", request, JsonOptions, token).ConfigureAwait(false);
-        if (!response.IsSuccessStatusCode) return (false, null, watch.ElapsedMilliseconds);
+        if (!response.IsSuccessStatusCode) return new(false, null, watch.ElapsedMilliseconds);
         var result = await response.Content.ReadFromJsonAsync<ChatResponse>(JsonOptions, token).ConfigureAwait(false);
         // A clean utterance needs no rewrite. Some tuned models occasionally answer with an
         // empty message for these examples; preserve the transcript instead of losing it.
-        if (result is { Done: true } && string.IsNullOrWhiteSpace(result.Message.Content) && !correction)
-            return (true, original, watch.ElapsedMilliseconds);
-        return (result is { Done: true } && result.DoneReason != "length" && !string.IsNullOrWhiteSpace(result.Message.Content),
-            result?.Message.Content, watch.ElapsedMilliseconds);
+        string? content = result?.Message?.Content;
+        if (result is { Done: true, Message: not null } && result.DoneReason != "length" && string.IsNullOrWhiteSpace(content) && !correction)
+            return new(true, original, watch.ElapsedMilliseconds, UsedOriginalFallback: true);
+        return new(result is { Done: true, Message: not null } && result.DoneReason != "length" && !string.IsNullOrWhiteSpace(content),
+            content, watch.ElapsedMilliseconds);
     }
 
     public void Dispose() => _http.Dispose();

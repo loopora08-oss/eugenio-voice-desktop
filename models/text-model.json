@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "source": "openbmb/minicpm5-2b:latest",
+  "sourceDigest": "71a44e98400fbd490d66332a0ebba31143479a714987c13f45c82e94025cbfa7",
+  "target": "eugenio-minicpm5:dictation-v1",
+  "targetDigest": "3155d79fbb04d7b57218cb9dcdf3707086a26e89d8ca2feff2039ed526dc1249",
+  "releaseStatus": "experimental-quality-gate-failed",
+  "template": "ollama-template.txt",
+  "license": "Apache-2.0 dei pesi, da verificare separatamente dalla licenza MIT del programma",
+  "sourceUrl": "https://huggingface.co/openbmb/MiniCPM5-2B-GGUF",
+  "purpose": "Template ChatML esplicito del progetto, senza prompt personali o configurazioni clienti"
+}

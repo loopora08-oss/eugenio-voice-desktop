@@ -15,7 +15,7 @@ namespace VoceLocale;
 public partial class MainWindow : Window
 {
     private readonly bool _previewOnly;
-    private Settings _settings = Storage.LoadSettings();
+    private Settings _settings;
     private readonly EngineClient _whisper = new("WhisperWorker", realtime: true);
     private readonly EngineClient _wakeWhisper = new("WhisperWorker");
     private ModelSpec _dictationModel = Models.Whisper, _wakeModel = Models.Whisper;
@@ -38,7 +38,7 @@ public partial class MainWindow : Window
     private string _pending = "";
     private Channel<byte[]>? _segmentChannel;
     private Task? _segmentWorker;
-    private int _segmentsEmitted, _insertedBlocks;
+    private int _segmentsEmitted, _insertedBlocks, _originalFallbackBlocks;
     private string _segmentFailureText = "";
     private string _segmentFailureReason = "";
     private bool _ready, _busy, _recording, _closing, _recoveryArmed, _manualOnly, _hotkeyAvailable, _wakeListening, _initialLoadStarted;
@@ -47,13 +47,14 @@ public partial class MainWindow : Window
     public MainWindow(bool previewOnly = false)
     {
         _previewOnly = previewOnly;
+        _settings = Storage.LoadSettings(previewOnly);
         InitializeComponent();
         _badge = new BadgeWindow(ShowSettings, ToggleAsync);
         _badge.RestorePosition(_settings.BadgeLeft, _settings.BadgeTop);
         _badge.PositionChanged += (left, top) =>
         {
             _settings.BadgeLeft = left; _settings.BadgeTop = top;
-            try { Storage.SaveSettings(_settings); } catch { }
+            if (!_previewOnly) { try { Storage.SaveSettings(_settings); } catch { } }
         };
         ShortcutBox.Text = _settings.Shortcut;
         LanguageBox.SelectedIndex = _settings.Language switch { "it" => 1, "en" => 2, _ => 0 };
@@ -371,18 +372,12 @@ public partial class MainWindow : Window
     }
     private void PopulateRewriteModels(IReadOnlyList<string> models)
     {
-        var preferred = models.FirstOrDefault(m => m.Equals(_settings.RewriteModel, StringComparison.OrdinalIgnoreCase))
-            ?? models.FirstOrDefault(m => m.Equals("minicpm-assistente-it:latest", StringComparison.OrdinalIgnoreCase))
-            ?? models.FirstOrDefault(m => m.Contains("minicpm", StringComparison.OrdinalIgnoreCase))
-            ?? models.FirstOrDefault();
+        // Un modello installato può appartenere a un altro progetto: la scelta deve essere esplicita.
+        var preferred = LocalModelSelection.FindConfigured(models, _settings.RewriteModel);
         RewriteModelBox.ItemsSource = models;
         RewriteModelBox.SelectedItem = preferred;
         TextModelBox.ItemsSource = models;
-        TextModelBox.SelectedItem = models.FirstOrDefault(m => m.Equals(_settings.TextModel, StringComparison.OrdinalIgnoreCase))
-            ?? models.FirstOrDefault(m => m.Equals("qwen3.5:4b", StringComparison.OrdinalIgnoreCase))
-            ?? preferred;
-        if (TextModelBox.SelectedItem is string textModel) _settings.TextModel = textModel;
-        if (preferred == null) RewriteModelBox.Text = _settings.RewriteModel;
+        TextModelBox.SelectedItem = LocalModelSelection.FindConfigured(models, _settings.TextModel);
     }
     private void SetSetupBusy(bool busy)
     {
@@ -498,10 +493,11 @@ public partial class MainWindow : Window
                 }
                 raw = output.Raw;
                 if (!string.IsNullOrWhiteSpace(output.Final)) await InsertSegmentAsync(output.Final, timeout.Token);
+                if (output.OriginalFallback) _originalFallbackBlocks++;
             }
             Array.Clear(audio); audio = null;
             if (_insertedBlocks == 0) { FinishSession(); Status("Nessuna dettatura riconosciuta", "Dì Eugenio e poi il testo da inserire.", error: true); return; }
-            FinishSession(); Status("Testo inserito", $"Inseriti {_insertedBlocks} blocchi puliti. Nessun messaggio è stato inviato.");
+            FinishSession(); Status("Testo inserito", $"Inseriti {_insertedBlocks} blocchi; {_originalFallbackBlocks} trascrizioni conservate perché il modello non ha restituito testo. Nessun messaggio è stato inviato.");
         }
         catch (OperationCanceledException)
         {
@@ -523,6 +519,7 @@ public partial class MainWindow : Window
     {
         _lastSpeechLanguage = null;
         _segmentsEmitted = _insertedBlocks = 0;
+        _originalFallbackBlocks = 0;
         _segmentFailureText = "";
         _segmentFailureReason = "";
         _segmentChannel = Channel.CreateUnbounded<byte[]>(new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
@@ -544,7 +541,14 @@ public partial class MainWindow : Window
         var channel = _segmentChannel;
         try
         {
-            await SpeechBlockQueue.RunPreparedAsync(reader, TimeSpan.FromMilliseconds(1500), TranscribeBlockAsync, ProcessSegmentAsync, token, () => _recorder.HasPendingSpeech);
+            await SpeechBlockQueue.RunPreparedAsync(reader, TimeSpan.FromMilliseconds(1500), TranscribeBlockAsync,
+                ProcessSegmentAsync, token, () => _recorder.HasPendingSpeech,
+                combinePrepared: _settings.TranscriptionProfile == "accurate" ? null : TranscriptionResults.Combine,
+                measured: metric => Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    if (ReferenceEquals(_session, session))
+                        TimingLabel.Text += $" · {metric.RecognitionPasses} riconoscimenti / {metric.Segments} segmenti · blocco {metric.TotalMilliseconds / 1000:F1} s";
+                })));
         }
         catch
         {
@@ -588,9 +592,11 @@ public partial class MainWindow : Window
             throw new InvalidDataException("Correzione non riuscita.");
         }
         if (!string.IsNullOrWhiteSpace(output.Final)) await InsertSegmentAsync(output.Final, token);
+        if (output.OriginalFallback) _originalFallbackBlocks++;
         await Dispatcher.InvokeAsync(() =>
         {
-            TimingLabel.Text = $"Ultima frase: trascrizione {output.TranscriptionMs / 1000d:F1} s · correzione {output.RewriteMs / 1000d:F1} s · {_insertedBlocks} blocchi";
+            TimingLabel.Text = $"Ultima frase: trascrizione {output.TranscriptionMs / 1000d:F1} s · correzione {output.RewriteMs / 1000d:F1} s · {_insertedBlocks} blocchi"
+                + (output.OriginalFallback ? " · originale conservato: modello senza testo" : "");
             if (_recording) _badge.SetStatus($"Registrazione {_recordTime.Elapsed:mm\\:ss} / 02:00 · clicca per fermare", "recording");
         });
     }
@@ -613,7 +619,7 @@ public partial class MainWindow : Window
         _insertedBlocks++;
     }
 
-    private async Task<(string Raw, string? Final, long TranscriptionMs, long RewriteMs)> ProcessBlockAsync(byte[] audio, bool stripWake, CancellationToken token)
+    private async Task<(string Raw, string? Final, long TranscriptionMs, long RewriteMs, bool OriginalFallback)> ProcessBlockAsync(byte[] audio, bool stripWake, CancellationToken token)
     {
         var transcription = await TranscribeBlockAsync(audio, token);
         return await FinishBlockAsync(transcription, stripWake, token);
@@ -621,21 +627,21 @@ public partial class MainWindow : Window
     private Task<EngineResponse> TranscribeBlockAsync(byte[] audio, CancellationToken token) =>
         _whisper.RunAsync(new(Guid.NewGuid().ToString(), "transcribe",
             Storage.ModelPath(SpeechProfile.Choose(_settings.TranscriptionProfile, audio.Length, _baseAvailable, _smallAvailable, _settings.Language == "auto" ? _lastSpeechLanguage : _settings.Language)), _settings.Language, audio, Mode: SpeechProfile.DecoderMode(_settings.TranscriptionProfile), Vocabulary: _settings.Vocabulary), token);
-    private async Task<(string Raw, string? Final, long TranscriptionMs, long RewriteMs)> FinishBlockAsync(EngineResponse transcription, bool stripWake, CancellationToken token)
+    private async Task<(string Raw, string? Final, long TranscriptionMs, long RewriteMs, bool OriginalFallback)> FinishBlockAsync(EngineResponse transcription, bool stripWake, CancellationToken token)
     {
         if (!transcription.Ok || string.IsNullOrWhiteSpace(transcription.Text)) throw new IOException("Trascrizione non riuscita.");
         _lastSpeechLanguage = transcription.Language;
         string raw = stripWake ? StripWakePhrase(transcription.Text) : transcription.Text.Trim();
-        if (string.IsNullOrWhiteSpace(raw)) return ("", "", transcription.Milliseconds, 0);
+        if (string.IsNullOrWhiteSpace(raw)) return ("", "", transcription.Milliseconds, 0, false);
         if (_settings.TranslateToEnglish)
         {
             var translated = await _translation.TranslateAsync(_settings.TranslationModel, raw, _settings.Vocabulary, token, transcription.Language);
-            return (raw, translated.Ok ? translated.Text : null, transcription.Milliseconds, translated.Milliseconds);
+            return (raw, translated.Ok ? translated.Text : null, transcription.Milliseconds, translated.Milliseconds, false);
         }
         var correction = await _rewrite.RewriteAsync(_settings.RewriteModel, raw, _settings.Mode, _settings.Vocabulary, token);
         if (!correction.Ok || !TextPolicy.TryValidate(raw, correction.Text ?? "", false, out var final))
-            return (raw, null, transcription.Milliseconds, correction.Milliseconds);
-        return (raw, final, transcription.Milliseconds, correction.Milliseconds);
+            return (raw, null, transcription.Milliseconds, correction.Milliseconds, false);
+        return (raw, final, transcription.Milliseconds, correction.Milliseconds, correction.UsedOriginalFallback);
     }
     private void Recover(string text, string reason, bool manualOnly)
     {

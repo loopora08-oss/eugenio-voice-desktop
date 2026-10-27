@@ -1,6 +1,9 @@
 <Application x:Class="VoceLocale.App" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" ShutdownMode="OnExplicitShutdown">
   <Application.Resources>
     <SolidColorBrush x:Key="Ink" Color="#E8EEF6" />
+    <SolidColorBrush x:Key="SecondaryInk" Color="#A8B7C5" />
+    <SolidColorBrush x:Key="TranscriptSelection" Color="#80D8B1" />
+    <Thickness x:Key="ControlGap">0,0,16,0</Thickness>
     <Style TargetType="Window"><Setter Property="FontFamily" Value="Segoe UI" /><Setter Property="Background" Value="#101820" /><Setter Property="Foreground" Value="{StaticResource Ink}" /></Style>
     <Style TargetType="TextBlock"><Setter Property="TextWrapping" Value="Wrap" /></Style>
     <Style TargetType="Button"><Setter Property="Padding" Value="16,9" /><Setter Property="Margin" Value="0,0,8,0" /><Setter Property="Background" Value="#D6F1E4" /><Setter Property="Foreground" Value="#12241D" /><Setter Property="BorderThickness" Value="0" /><Setter Property="Cursor" Value="Hand" /></Style>

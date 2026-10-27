@@ -1,7 +1,14 @@
-name: Build Eugenio for Windows
+name: Compila e verifica Eugenio su Windows
 
 on:
+  push:
+    branches: [main, 'feat/**']
+  pull_request:
   workflow_dispatch:
+
+concurrency:
+  group: eugenio-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -9,21 +16,28 @@ permissions:
 jobs:
   build:
     runs-on: windows-latest
+    timeout-minutes: 25
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_GENERATE_ASPNET_CERTIFICATE: 'false'
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4, verificato 2026-10-26
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
         with:
-          dotnet-version: 10.0.x
-      - name: Publish complete desktop package and run logic tests
+          global-json-file: global.json
+      - name: Verifica documentazione e vincoli del repository
+        shell: pwsh
+        run: ./scripts/Test-Repository.ps1
+      - name: Pubblica il pacchetto e verifica la logica
         shell: pwsh
         run: ./build.ps1 -Destination (Join-Path $PWD 'publish/App')
-      - name: Check required executable files
+      - name: Controlla i file richiesti nel pacchetto
         shell: pwsh
         run: |
-          foreach ($file in @('publish/App/VoceLocale.exe', 'publish/App/engines/WhisperWorker/WhisperWorker.exe', 'publish/App/engines/RewriteWorker/RewriteWorker.exe', 'publish/App/LEGGIMI.md')) {
+          foreach ($file in @('publish/App/VoceLocale.exe', 'publish/App/engines/WhisperWorker/WhisperWorker.exe', 'publish/App/engines/RewriteWorker/RewriteWorker.exe', 'publish/App/LEGGIMI.md', 'publish/App/LICENSE', 'publish/App/BINARY-HASHES.json')) {
             if (-not (Test-Path -LiteralPath $file)) { throw "Missing package file: $file" }
           }
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: Eugenio-App-win-x64
           path: publish/App/

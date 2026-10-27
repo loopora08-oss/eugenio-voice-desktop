@@ -28,9 +28,10 @@ public static class Storage
             "Eugenio", "models", model.FileName);
         return File.Exists(managedModel) ? managedModel : userModel;
     }
-    public static Settings LoadSettings()
+    public static Settings LoadSettings(bool previewOnly = false, Func<string>? readSettings = null)
     {
-        try { return JsonSerializer.Deserialize<Settings>(File.ReadAllText(SettingsPath)) ?? new(); }
+        if (previewOnly) return new();
+        try { return JsonSerializer.Deserialize<Settings>(readSettings == null ? File.ReadAllText(SettingsPath) : readSettings()) ?? new(); }
         catch { return new(); }
     }
     public static void SaveSettings(Settings settings)

@@ -18,7 +18,7 @@ public sealed class MeetingStream : IDisposable
     private readonly Task _worker;
     private readonly Task _translationWorker;
     private bool _completed, _overloaded, _disposed;
-    private string _previous = "";
+    private readonly Dictionary<MeetingAudioSource, string> _previous = new();
     public event Action<MeetingEntry>? EntryAdded;
     public event Action<MeetingEntry>? EntryUpdated;
     public event Action<string>? Fault;
@@ -99,10 +99,11 @@ public sealed class MeetingStream : IDisposable
                 if (result.Error == "silence") return;
                 throw new IOException("Transcription failed.");
             }
-            string text = MeetingText.RemoveOverlap(_previous, result.Text ?? "", chunk.Overlap);
+            string text = MeetingText.RemoveOverlap(_previous.GetValueOrDefault(chunk.Source, ""), result.Text ?? "", chunk.Overlap);
             if (text.Length == 0) return;
-            _previous = result.Text ?? text;
-            var entry = new MeetingEntry(chunk.Sequence, chunk.StartSeconds, chunk.EndSeconds, text, TranslationRequested: job.Translate, Language: result.Language);
+            _previous[chunk.Source] = result.Text ?? text;
+            var entry = new MeetingEntry(chunk.Sequence, chunk.StartSeconds, chunk.EndSeconds, text, TranslationRequested: job.Translate, Language: result.Language, Source: chunk.Source,
+                Provenance: result.Provenance);
             lock (_gate) _entries.Add(entry);
             EntryAdded?.Invoke(entry);
             if (job.Translate)
@@ -116,7 +117,7 @@ public sealed class MeetingStream : IDisposable
         catch (OperationCanceledException) when (_cancel.IsCancellationRequested) { }
         catch
         {
-            var missing = new MeetingEntry(chunk.Sequence, chunk.StartSeconds, chunk.EndSeconds, "", Warning: "Blocco non trascritto: intervallo da verificare.");
+            var missing = new MeetingEntry(chunk.Sequence, chunk.StartSeconds, chunk.EndSeconds, "", Warning: "Blocco non trascritto: intervallo da verificare.", Source: chunk.Source);
             lock (_gate) _entries.Add(missing);
             EntryAdded?.Invoke(missing);
             Fault?.Invoke("Trascrizione interrotta. I blocchi già completati restano nel notetaker.");

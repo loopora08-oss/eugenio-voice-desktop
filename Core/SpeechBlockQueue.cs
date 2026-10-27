@@ -1,27 +1,40 @@
 using System.Threading.Channels;
+using System.Diagnostics;
 
 namespace VoceLocale.Core;
 
-/// <summary>Groups adjacent speech segments briefly so spoken corrections stay in one block.</summary>
+/// <summary>Raggruppa segmenti vicini preservando i ripensamenti e la pulizia dei buffer.</summary>
 public static class SpeechBlockQueue
 {
     public static async Task RunPreparedAsync<T>(ChannelReader<byte[]> reader, TimeSpan correctionWindow,
         Func<byte[], CancellationToken, Task<T>> prepare,
-        Func<byte[], T, CancellationToken, Task> process, CancellationToken token, Func<bool>? hasPendingSpeech = null)
+        Func<byte[], T, CancellationToken, Task> process, CancellationToken token, Func<bool>? hasPendingSpeech = null,
+        Func<IReadOnlyList<T>, T>? combinePrepared = null, Action<SpeechBlockMetrics>? measured = null,
+        int maximumAudioBytes = 16000 * 2 * 120)
     {
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(correctionWindow, TimeSpan.Zero);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(maximumAudioBytes, 0);
+        ArgumentNullException.ThrowIfNull(reader);
+        ArgumentNullException.ThrowIfNull(prepare);
+        ArgumentNullException.ThrowIfNull(process);
         try
         {
             while (await reader.WaitToReadAsync(token))
             {
                 if (!reader.TryRead(out var first)) continue;
                 var parts = new List<byte[]> { first };
+                var recognitions = new List<Task<T>>();
+                using var preparationLifetime = CancellationTokenSource.CreateLinkedTokenSource(token);
+                var watch = Stopwatch.StartNew();
                 Task<T>? prepared = null;
                 byte[]? combined = null;
+                int totalBytes = first.Length, recognitionPasses = 0;
                 try
                 {
-                    // ASR starts now; publication still waits for possible self-correction.
-                    prepared = prepare(first, token);
+                    if (totalBytes > maximumAudioBytes) throw new InvalidDataException("Blocco vocale troppo lungo. Ferma la dettatura e riprova con una frase più breve.");
+                    // Il riconoscimento anticipa la conferma, ma nessuna ipotesi viene digitata.
+                    prepared = prepare(first, preparationLifetime.Token);
+                    recognitions.Add(prepared); recognitionPasses++;
                     bool waiting = true;
                     while (waiting)
                     {
@@ -30,30 +43,62 @@ public static class SpeechBlockQueue
                         try
                         {
                             if (await reader.WaitToReadAsync(window.Token))
-                                while (reader.TryRead(out var next)) parts.Add(next);
+                                while (reader.TryRead(out var next))
+                                {
+                                    parts.Add(next);
+                                    totalBytes = checked(totalBytes + next.Length);
+                                    if (parts.Count > 256 || totalBytes > maximumAudioBytes)
+                                        throw new InvalidDataException("Troppi segmenti in attesa. Ferma la dettatura e riprova con una frase più breve.");
+                                    if (combinePrepared != null)
+                                    {
+                                        recognitions.Add(prepare(next, preparationLifetime.Token));
+                                        recognitionPasses++;
+                                    }
+                                }
                             else waiting = false;
                         }
                         catch (OperationCanceledException) when (!token.IsCancellationRequested)
                         { waiting = hasPendingSpeech?.Invoke() == true; }
                     }
+                    double confirmationMs = watch.Elapsed.TotalMilliseconds;
                     T result;
                     if (parts.Count == 1) result = await prepared;
+                    else if (combinePrepared != null)
+                    {
+                        // Ogni segmento è riconosciuto una volta. La correzione finale riceve
+                        // tutto il testo, incluse negazioni e ripensamenti tra segmenti.
+                        result = combinePrepared(await Task.WhenAll(recognitions));
+                        combined = new byte[totalBytes];
+                        int offset = 0;
+                        foreach (var part in parts) { part.CopyTo(combined, offset); offset += part.Length; }
+                    }
                     else
                     {
                         // Complete the unused recognition before wiping its input. The combined
                         // audio is recognized once, preserving corrections across all adjacent parts.
                         try { await prepared; } catch when (!token.IsCancellationRequested) { }
                         token.ThrowIfCancellationRequested();
-                        combined = new byte[parts.Sum(p => p.Length)];
+                        combined = new byte[totalBytes];
                         int offset = 0;
                         foreach (var part in parts) { part.CopyTo(combined, offset); offset += part.Length; }
-                        result = await prepare(combined, token);
+                        recognitionPasses++;
+                        result = await prepare(combined, preparationLifetime.Token);
                     }
+                    double preparedMs = watch.Elapsed.TotalMilliseconds;
+                    token.ThrowIfCancellationRequested();
                     await process(combined ?? first, result, token);
+                    // L'osservatore riceve esclusivamente tempi e contatori, mai contenuti.
+                    if (measured != null)
+                    {
+                        var metric = new SpeechBlockMetrics(Guid.NewGuid(), parts.Count, recognitionPasses,
+                            totalBytes, confirmationMs, preparedMs, watch.Elapsed.TotalMilliseconds);
+                        try { measured(metric); } catch { /* La diagnostica non deve duplicare un inserimento già riuscito. */ }
+                    }
                 }
                 finally
                 {
-                    if (prepared != null) { try { await prepared; } catch { } }
+                    preparationLifetime.Cancel();
+                    foreach (var recognition in recognitions) { try { await recognition; } catch { } }
                     foreach (var part in parts) Array.Clear(part);
                     if (combined != null) Array.Clear(combined);
                 }
