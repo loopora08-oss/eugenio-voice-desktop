@@ -30,4 +30,3 @@
   <Style TargetType="TabControl"><Setter Property="Foreground" Value="{StaticResource Ink}"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TabControl"><Grid KeyboardNavigation.TabNavigation="Local"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions><Border BorderBrush="{StaticResource Edge}" BorderThickness="0,0,0,1"><TabPanel IsItemsHost="True"/></Border><ContentPresenter Grid.Row="1" x:Name="PART_SelectedContentHost" ContentSource="SelectedContent"/></Grid></ControlTemplate></Setter.Value></Setter></Style>
   <Style TargetType="Separator"><Setter Property="Background" Value="{StaticResource Edge}"/><Setter Property="Height" Value="1"/></Style>
 </ResourceDictionary>
-
