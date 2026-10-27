@@ -7,6 +7,9 @@
     <LangVersion>latest</LangVersion>
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
     <Deterministic>true</Deterministic>
+    <Product>Eugenio</Product>
+    <Company>Contributori di Eugenio</Company>
+    <Copyright>Copyright (c) 2026 Contributori di Eugenio</Copyright>
     <Version>1.5.0-preview.9</Version>
     <AssemblyVersion>1.5.0.0</AssemblyVersion>
     <FileVersion>1.5.0.0</FileVersion>
