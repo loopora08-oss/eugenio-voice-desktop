@@ -1,0 +1,91 @@
+name: Firma controllata Eugenio con SignPath
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: eugenio-signpath-release
+  cancel-in-progress: false
+
+jobs:
+  sign:
+    # Attivare solo dopo ammissione SignPath e configurazione dell'ambiente protetto.
+    if: github.ref == 'refs/heads/main' && vars.SIGNPATH_ENABLED == 'true'
+    environment: signpath-release
+    runs-on: windows-latest
+    timeout-minutes: 60
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_GENERATE_ASPNET_CERTIFICATE: 'false'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9
+        with:
+          global-json-file: global.json
+      - name: Verifica configurazione senza mostrare credenziali
+        shell: pwsh
+        env:
+          SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
+          SIGNPATH_ORGANIZATION_ID: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          SIGNPATH_PROJECT_SLUG: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          SIGNPATH_SIGNING_POLICY_SLUG: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
+          SIGNPATH_ARTIFACT_CONFIGURATION_SLUG: ${{ vars.SIGNPATH_ARTIFACT_CONFIGURATION_SLUG }}
+          SIGNPATH_CERTIFICATE_SUBJECT: ${{ vars.SIGNPATH_CERTIFICATE_SUBJECT }}
+        run: |
+          foreach ($name in @('SIGNPATH_API_TOKEN','SIGNPATH_ORGANIZATION_ID','SIGNPATH_PROJECT_SLUG','SIGNPATH_SIGNING_POLICY_SLUG','SIGNPATH_ARTIFACT_CONFIGURATION_SLUG','SIGNPATH_CERTIFICATE_SUBJECT')) {
+            if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) { throw "Configurazione mancante: $name" }
+          }
+      - name: Compila e verifica prima di richiedere la firma
+        shell: pwsh
+        run: |
+          ./scripts/Test-Repository.ps1
+          ./build.ps1 -Destination (Join-Path $PWD 'publish/App')
+      - name: Verifica metadati e perimetro della firma
+        id: metadata
+        shell: pwsh
+        run: ./scripts/Test-SigningPackage.ps1 -Path publish/App
+      - name: Verifica i casi di errore del controllo firma
+        shell: pwsh
+        run: ./scripts/Test-SigningChecks.ps1 -SourcePath publish/App
+      - name: Carica il pacchetto originale verificabile da SignPath
+        id: unsigned
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: Eugenio-originale-da-firmare
+          path: publish/App/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Richiedi la firma con approvazione umana SignPath
+        id: signpath
+        uses: signpath/github-action-submit-signing-request@f6d04783b4569d051e0c80105fe66e82819d0092 # v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
+          artifact-configuration-slug: ${{ vars.SIGNPATH_ARTIFACT_CONFIGURATION_SLUG }}
+          github-artifact-id: ${{ steps.unsigned.outputs.artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: '1800'
+          output-artifact-directory: signed/App
+          parameters: |
+            productVersion: "${{ steps.metadata.outputs.product-version }}"
+            fileVersion: "${{ steps.metadata.outputs.file-version }}"
+      - name: Verifica firme, editore e integrità dei file non firmati
+        shell: pwsh
+        env:
+          SIGNPATH_CERTIFICATE_SUBJECT: ${{ vars.SIGNPATH_CERTIFICATE_SUBJECT }}
+        run: |
+          ./scripts/Test-SigningPackage.ps1 -Path signed/App -UnsignedPath publish/App -RequireSignature -ExpectedSignerSubject $env:SIGNPATH_CERTIFICATE_SUBJECT
+          ./scripts/Update-PackageManifest.ps1 -Path signed/App
+      - name: Conserva il risultato senza pubblicarlo automaticamente
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: Eugenio-firmato-da-verificare
+          path: signed/App/
+          if-no-files-found: error
+          retention-days: 14

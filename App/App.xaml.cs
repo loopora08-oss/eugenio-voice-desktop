@@ -13,8 +13,10 @@ public partial class App : System.Windows.Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
-        bool preview = e.Args.Contains("--preview");
-        _instance = new Mutex(true, preview ? @"Local\Eugenio.Preview.v1" : @"Local\VoceLocale.Personal.v1", out bool first);
+        bool designPreview = e.Args.Contains("--preview-design");
+        bool preview = designPreview || e.Args.Contains("--preview");
+        // Anteprima grafica indipendente: non chiude documenti di altre sessioni di prova.
+        _instance = new Mutex(true, designPreview ? @"Local\Eugenio.DesignPreview.Pixel.v2" : preview ? @"Local\Eugenio.Preview.v1" : @"Local\VoceLocale.Personal.v1", out bool first);
         if (!first)
         {
             if (preview) { Shutdown(); return; }
@@ -46,7 +48,11 @@ public partial class App : System.Windows.Application
             }
         };
         var main = new MainWindow(preview);
-        if (e.Args.Contains("--meeting")) main.Loaded += (_, _) => main.ShowMeeting();
+        if (e.Args.Contains("--meeting")) main.Loaded += (_, _) =>
+        {
+            var meeting = main.ShowMeeting();
+            if (preview && e.Args.Contains("--compact")) { meeting.Width = 880; meeting.Height = 620; }
+        };
         MainWindow = main;
         main.Show();
         if (preview) return;

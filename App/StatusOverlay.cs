@@ -15,7 +15,12 @@ public sealed class StatusOverlay : Window
         ShowInTaskbar = false; ShowActivated = false; Topmost = true; AllowsTransparency = true;
         Background = Brushes.Transparent; IsHitTestVisible = false;
         _label = new TextBlock { Foreground = Brushes.White, FontSize = 14, VerticalAlignment = VerticalAlignment.Center, TextAlignment = TextAlignment.Center };
-        Content = new Border { Background = new SolidColorBrush(Color.FromRgb(25, 44, 42)), CornerRadius = new CornerRadius(18), Padding = new Thickness(14), Child = _label };
+        var layout = new Grid();
+        layout.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(54) });
+        layout.ColumnDefinitions.Add(new ColumnDefinition());
+        layout.Children.Add(new PixelLamp { Width = 48, Height = 32 });
+        Grid.SetColumn(_label, 1); layout.Children.Add(_label);
+        Content = new Border { Background = Brushes.Black, BorderBrush = PixelPalette.Stream[1], BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(2), Padding = new Thickness(10), Child = layout };
         SourceInitialized += (_, _) =>
         {
             var hwnd = new WindowInteropHelper(this).Handle;

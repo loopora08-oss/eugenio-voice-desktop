@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+  <parameters>
+    <parameter name="productVersion" required="true" />
+    <parameter name="fileVersion" required="true" />
+  </parameters>
+  <zip-file>
+    <!-- Elenco chiuso: non firmare DLL o runtime di terzi con il certificato del progetto. -->
+    <pe-file-set product-name="Eugenio" product-version="${productVersion}" file-version="${fileVersion}">
+      <include path="VoceLocale.exe" />
+      <include path="VoceLocale.dll" />
+      <include path="Core.dll" />
+      <include path="engines/WhisperWorker/WhisperWorker.exe" />
+      <include path="engines/WhisperWorker/WhisperWorker.dll" />
+      <include path="engines/WhisperWorker/Core.dll" />
+      <include path="engines/RewriteWorker/RewriteWorker.exe" />
+      <include path="engines/RewriteWorker/RewriteWorker.dll" />
+      <include path="engines/RewriteWorker/Core.dll" />
+      <for-each><authenticode-sign hash-algorithm="sha256" /></for-each>
+    </pe-file-set>
+  </zip-file>
+</artifact-configuration>

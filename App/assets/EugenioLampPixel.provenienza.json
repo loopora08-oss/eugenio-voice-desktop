@@ -1,0 +1,9 @@
+{
+  "asset": "EugenioLampPixel.png",
+  "sha256": "A594684D02E2D4495B5EEDB0AF12AE85F52B01BB7D70486D0CAAA9D5B7A2ACAA",
+  "created": "2026-10-27",
+  "tool": "ImageGen integrato",
+  "origin": "Concept Notetaker pixel approvato nella chat Eugenio",
+  "ai_generated": true,
+  "prompt": "Extract and faithfully reproduce ONLY the golden PIXEL ART lamp from the lower-left of the reference as a reusable application branding asset. Preserve its beautiful rounded metal shape, curved handle on the left, long elegant spout pointing right, lid, gold faceted pixel shading and pedestal. Enlarge this single isolated sprite to occupy 85% of a landscape canvas, fully visible with breathing room, transparent background. Crisp 16-bit pixel art with deliberately visible 3-5 pixel square clusters and rich restrained gold, amber and cream highlights, professionally drawn, same identity as reference. No UI, no text, no labels, no frame, no floor reflection, no blue smoke, no trails, no background, no shadows outside the sprite. Genuine alpha transparency, not a black rectangle. Need a finished reusable sprite, not an interface screenshot."
+}

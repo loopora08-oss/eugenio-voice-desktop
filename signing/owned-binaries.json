@@ -1,0 +1,11 @@
+[
+  "VoceLocale.exe",
+  "VoceLocale.dll",
+  "Core.dll",
+  "engines/WhisperWorker/WhisperWorker.exe",
+  "engines/WhisperWorker/WhisperWorker.dll",
+  "engines/WhisperWorker/Core.dll",
+  "engines/RewriteWorker/RewriteWorker.exe",
+  "engines/RewriteWorker/RewriteWorker.dll",
+  "engines/RewriteWorker/Core.dll"
+]

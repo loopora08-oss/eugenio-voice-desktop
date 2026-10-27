@@ -1,6 +1,9 @@
 namespace VoceLocale.Core;
 
-public sealed record MeetingAudioChunk(long Sequence, long StartSample, long EndSample, byte[] Audio, bool Overlap)
+public enum MeetingAudioSource { Microphone = 0, System = 1 }
+
+public sealed record MeetingAudioChunk(long Sequence, long StartSample, long EndSample, byte[] Audio, bool Overlap,
+    MeetingAudioSource Source = MeetingAudioSource.Microphone)
 {
     public double StartSeconds => StartSample / 16000d;
     public double EndSeconds => EndSample / 16000d;

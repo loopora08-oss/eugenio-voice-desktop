@@ -8,7 +8,9 @@ public sealed record EngineRequest(string Id, string Operation, string ModelPath
     string Language = "auto", byte[]? Audio = null, string? Text = null,
     string Mode = "general", string[]? Vocabulary = null);
 public sealed record EngineResponse(string Id, bool Ok, string? Text = null,
-    string? Error = null, long Milliseconds = 0, string? Language = null, string? Backend = null);
+    string? Error = null, long Milliseconds = 0, string? Language = null, string? Backend = null,
+    RecognitionProvenance? Provenance = null);
+public sealed record RewriteResult(bool Ok, string? Text, long Milliseconds, bool UsedOriginalFallback = false);
 public sealed record ModelSpec(string Id, string FileName, string Url, string Sha256, long Bytes);
 
 public static class Models
@@ -17,7 +19,7 @@ public static class Models
         "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-base.bin?download=true",
         "60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe", 147951465);
     public static readonly ModelSpec Whisper = new("whisper", "ggml-small.bin",
-        "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin?download=true",
+        "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-small.bin?download=true",
         "1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b", 487601967);
     public static readonly ModelSpec Rewrite = new("rewrite", "MiniCPM5-2B-Q4_K_M.gguf",
         "https://huggingface.co/openbmb/MiniCPM5-2B-GGUF/resolve/b740251/MiniCPM5-2B-Q4_K_M.gguf?download=true",
@@ -200,7 +202,7 @@ public static class TextPolicy
         // than silently inserting a model reply or a heavily shortened summary.
         var inputWords = Regex.Matches(original, @"[\p{L}\p{N}]+").Count;
         var outputWords = Regex.Matches(s, @"[\p{L}\p{N}]+").Count;
-        if (inputWords >= 6 && outputWords < Math.Ceiling(inputWords * 0.35)
+        if (inputWords >= 6 && outputWords < Math.Ceiling(inputWords * 0.60)
             && (!DictationEdits.TryResolve(original, null, out var literalEdit) || ToSingleParagraph(s) != literalEdit)) return false;
         // In chat editors Enter can submit. First release inserts one paragraph, never Enter/Tab.
         result = ToSingleParagraph(s);

@@ -2,6 +2,8 @@
 
 VoceLocale è un’app personale indipendente; non è affiliata a Wispr Flow.
 
+Il codice proprio di Eugenio è distribuito sotto LICENSE (MIT). Tale licenza non copre automaticamente pesi, runtime o asset di terzi. La nuova distribuzione pubblica non include i reperti REA né codice Wispr. Il tag Ollama personalizzato usato nella precedente installazione non è un modello pubblico garantito; la portabilità del setup resta un requisito aperto. I termini Gemma non vanno presentati come licenza open source del modello.
+
 | Componente | Versione/modello | Licenza | Fonte |
 |---|---|---|---|
 | .NET e WPF | 10, self-contained Windows x64 | MIT e avvisi del runtime | https://github.com/dotnet/runtime |
