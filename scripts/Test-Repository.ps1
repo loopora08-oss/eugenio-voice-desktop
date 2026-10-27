@@ -9,7 +9,7 @@ foreach ($script in @(Get-ChildItem -LiteralPath $PSScriptRoot -Filter '*.ps1' -
 foreach ($file in @('LICENSE','README.md','global.json','compliance.toml','docs/ai-system-card.md','docs/roadmap-open-source.md','CONTRIBUTING.md')) {
   if (-not (Test-Path -LiteralPath (Join-Path $projectRoot $file) -PathType Leaf)) { throw "File richiesto assente: $file" }
 }
-$compliance = Get-Content -LiteralPath (Join-Path $projectRoot 'compliance.toml') -Raw
+$compliance = (Get-Content -LiteralPath (Join-Path $projectRoot 'compliance.toml') -Raw).Replace("`r`n", "`n")
 if ($compliance -notmatch '(?m)^uses_ai = true$' -or $compliance -notmatch '(?m)^decision = "go"' -or $compliance -notmatch 'system_card = "docs/ai-system-card.md"') {
   throw 'Triage IA assente o incoerente con il prodotto.'
 }
