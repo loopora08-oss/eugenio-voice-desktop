@@ -16,6 +16,9 @@ public sealed class MeetingDocument
     public double DurationSeconds { get; set; }
     public List<MeetingEntry> Entries { get; set; } = [];
     public string Notes { get; set; } = "";
+    public string Summary { get; set; } = "";
+    public bool SummaryNeedsUpdate { get; set; }
+    public bool SummaryEdited { get; set; }
     public int? NotedEntries { get; set; }
     // Calcolati dal contenuto: metadati in ingresso non possono sovrascrivere questa dichiarazione.
     public MeetingAiMetadata AiMetadata => new(1, "Eugenio", "ai-assisted-workflow", true,
@@ -28,7 +31,7 @@ public sealed class MeetingDocument
     {
         // Also bound TimeSpan conversions before replacing an open document.
         const double maximumSeconds = 36525d * 24 * 60 * 60;
-        return FormatVersion == 1 && Title != null && Notes != null && Entries != null && Entries.Count <= 100000
+        return FormatVersion == 1 && Title != null && Notes != null && Summary != null && Entries != null && Entries.Count <= 100000
             && (NotedEntries == null || NotedEntries >= 0 && NotedEntries <= Entries.Count)
             && double.IsFinite(DurationSeconds) && DurationSeconds >= 0 && DurationSeconds <= maximumSeconds
             && Entries.All(e => e != null && e.Original != null && double.IsFinite(e.StartSeconds) && double.IsFinite(e.EndSeconds)
@@ -51,6 +54,8 @@ public sealed class MeetingDocument
             .Append("Data: ").AppendLine(CreatedAt.ToString("yyyy-MM-dd HH:mm zzz"))
             .Append("Durata: ").AppendLine(TimeSpan.FromSeconds(DurationSeconds).ToString(@"hh\:mm\:ss"))
             .AppendLine().AppendLine("## Appunti").AppendLine().AppendLine(Notes)
+            .AppendLine().AppendLine("## Riepilogo IA").AppendLine().AppendLine(Summary)
+            .AppendLine(SummaryNeedsUpdate ? "Da aggiornare: ci sono appunti o trascrizioni successivi alla generazione." : "")
             .AppendLine().AppendLine("## Trascrizione").AppendLine();
         foreach (var entry in Entries)
         {

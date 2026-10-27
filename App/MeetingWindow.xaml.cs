@@ -30,7 +30,10 @@ public partial class MeetingWindow : Window
     private string? _path;
     private volatile bool _translationEnabled;
     private string? _captureFailure;
+    private bool _restoring;
+    private bool _writingSummary, _summaryEdited;
     private Task? _notesRunning;
+    private CancellationTokenSource? _summaryCancellation;
     private Task? _translationsFinishing, _stopRunning, _startRunning;
     private readonly CancellationTokenSource _windowLife = new();
     public bool Active => _starting || _recorder != null;
@@ -42,6 +45,12 @@ public partial class MeetingWindow : Window
     {
         InitializeComponent(); _settings = settings; _acquireMicrophone = acquire; _releaseMicrophone = release;
         TranscriptList.ItemsSource = _captions;
+        NotesBox.TextChanged += (_, _) =>
+        {
+            if (!_restoring && SummaryBox.Text.Length > 0)
+            { _document.SummaryNeedsUpdate = true; NotesHint.Text = "Appunti modificati: genera di nuovo il riepilogo per includerli."; }
+        };
+        SummaryBox.TextChanged += (_, _) => { if (!_restoring && !_writingSummary) _summaryEdited = true; };
         TranslationBox.Checked += (_, _) => _translationEnabled = true;
         TranslationBox.Unchecked += (_, _) => _translationEnabled = false;
         MicrophoneBox.ItemsSource = Recorder.Microphones();
@@ -55,7 +64,7 @@ public partial class MeetingWindow : Window
             {
                 CaptureStateChanged?.Invoke($"Meeting {_time.Elapsed:hh\\:mm\\:ss} · {(_stream?.PendingChunks ?? 0)} in coda", true, "recording");
                 if (AutomaticNotesBox.IsChecked == true && _document.Entries.Count - _notedEntries >= 6 && Environment.TickCount64 - _lastNotesAt >= 60000)
-                    _ = GenerateNotesAsync();
+                    _ = GenerateNotesAsync(automatic: true);
             }
         };
         Closing += (_, e) => { if (!_close) { e.Cancel = true; Hide(); } };
@@ -152,6 +161,7 @@ public partial class MeetingWindow : Window
     private void AddEntry(MeetingEntry entry)
     {
         _document.Entries.Add(entry); _captions.Add(ToCaption(entry));
+        if (SummaryBox.Text.Length > 0) _document.SummaryNeedsUpdate = true;
         if (string.IsNullOrWhiteSpace(SearchBox.Text)) TranscriptList.ScrollIntoView(_captions.Last());
         CountLabel.Text = $"{_captions.Count} blocchi";
         ScheduleSearch(false);
@@ -211,7 +221,11 @@ public partial class MeetingWindow : Window
             // Entry events were dispatched asynchronously; allow them to finish before summarizing/saving.
             await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Background);
             _document.DurationSeconds = _time.Elapsed.TotalSeconds;
-            if (AutomaticNotesBox.IsChecked == true) await GenerateNotesAsync();
+            if (AutomaticNotesBox.IsChecked == true)
+            {
+                if (_notesRunning != null) await _notesRunning;
+                await GenerateNotesAsync(automatic: true);
+            }
             StateLabel.Text = _captureFailure ?? (_stream?.PendingTranslations > 0 ? "Meeting terminato · inglese ancora in elaborazione" : "Meeting terminato · appunti e trascrizione disponibili");
         }
         catch { StateLabel.Text = "Meeting terminato con un errore. Verifica gli intervalli segnalati."; }
@@ -232,46 +246,53 @@ public partial class MeetingWindow : Window
         if (!_close && !_windowLife.IsCancellationRequested) { FooterLabel.Text = "Elaborazione completata · Salva per conservare anche le traduzioni aggiunte"; if (_recorder == null && !_starting) StateLabel.Text = _captureFailure ?? "Meeting terminato · appunti e trascrizione disponibili"; }
         stream.Dispose(); if (ReferenceEquals(_stream, stream)) _stream = null;
     }
-    private async void GenerateNotes(object sender, RoutedEventArgs e) => await GenerateNotesAsync();
-    private Task GenerateNotesAsync()
+    private async void GenerateNotes(object sender, RoutedEventArgs e)
     {
+        if (_notesBusy) { _summaryCancellation?.Cancel(); return; }
+        await GenerateNotesAsync();
+    }
+    private Task GenerateNotesAsync(bool automatic = false)
+    {
+        if (automatic && _summaryEdited)
+        {
+            NotesHint.Text = "Riepilogo modificato a mano: aggiornamento automatico sospeso. Genera riepilogo sostituisce il testo con una nuova versione.";
+            return Task.CompletedTask;
+        }
         if (_notesBusy) return _notesRunning ?? Task.CompletedTask;
         return _notesRunning = GenerateNotesCoreAsync();
     }
     private async Task GenerateNotesCoreAsync()
     {
-        if (_notesBusy || _notedEntries >= _document.Entries.Count) return;
-        _notesBusy = true; NotesButton.IsEnabled = false; _lastNotesAt = Environment.TickCount64;
+        if (_notesBusy) return;
+        var groups = MeetingSummaryInput.Build(_document.Entries, NotesBox.Text);
+        if (groups.Count == 0) { NotesHint.Text = "Scrivi appunti o acquisisci una trascrizione prima di generare il riepilogo."; return; }
+        _notesBusy = true; NotesButton.Content = "Annulla riepilogo"; _lastNotesAt = Environment.TickCount64;
+        using var summaryCancellation = CancellationTokenSource.CreateLinkedTokenSource(_windowLife.Token);
+        summaryCancellation.CancelAfter(TimeSpan.FromMinutes(10)); _summaryCancellation = summaryCancellation;
+        SummaryBox.IsReadOnly = true;
         int count = _document.Entries.Count;
-        bool usedExtracts = false;
+        string personalNotes = NotesBox.Text;
         try
         {
-            // Long meetings are summarized in bounded excerpts, never truncated silently.
-            var groups = new List<(string Text, int Through)>(); string group = ""; int through = _notedEntries;
-            for (int i = _notedEntries; i < count; i++)
+            NotesHint.Text = "Generazione del riepilogo locale… puoi continuare a scrivere negli appunti personali.";
+            string generated = await MeetingSummaryComposer.GenerateAsync(groups, async (excerpt, token) =>
             {
-                var entry = _document.Entries[i];
-                string line = $"[{TimeSpan.FromSeconds(entry.StartSeconds):hh\\:mm\\:ss}] {entry.Original}\n";
-                if (group.Length + line.Length > 6000 && group.Length > 0) { groups.Add((group, through)); group = ""; }
-                group += line;
-                through = i + 1;
-            }
-            if (group.Length > 0) groups.Add((group, through));
-            NotesHint.Text = "Generazione degli appunti locali… puoi continuare a scrivere.";
-            foreach (var excerpt in groups)
-            {
-                var result = await _text.NotesAsync(_settings().TextModel, excerpt.Text, _windowLife.Token);
-                if (!result.Ok) throw new IOException();
-                usedExtracts |= result.ExtractiveFallback;
-                NotesBox.AppendText((NotesBox.Text.Length > 0 ? "\n\n" : "") + result.Text);
-                _notedEntries = excerpt.Through;
-            }
-            _notedEntries = count; NotesHint.Text = usedExtracts
-                ? "Estratti fedeli aggiunti: il riepilogo AI non ha superato i controlli. Puoi modificarli negli appunti."
-                : "Appunti aggiornati. Verifica nomi, valori e decisioni prima di condividerli.";
+                var result = await _text.NotesAsync(_settings().TextModel, excerpt, token);
+                return (result.Ok, result.Text, result.ExtractiveFallback);
+            }, summaryCancellation.Token);
+            _writingSummary = true;
+            try { SummaryBox.Text = generated; }
+            finally { _writingSummary = false; }
+            _summaryEdited = false;
+            _notedEntries = count;
+            _document.SummaryNeedsUpdate = count != _document.Entries.Count || personalNotes != NotesBox.Text;
+            NotesTabs.SelectedIndex = 1;
+            NotesHint.Text = _document.SummaryNeedsUpdate ? "Riepilogo pronto sui dati precedenti: aggiorna per includere le ultime modifiche."
+                : "Riepilogo pronto. Verifica decisioni, incarichi, nomi e cifre prima di condividerlo.";
         }
-        catch { NotesHint.Text = "Appunti AI non disponibili: trascrizione conservata e appunti manuali sempre modificabili."; }
-        finally { _notesBusy = false; NotesButton.IsEnabled = true; }
+        catch (OperationCanceledException) { NotesHint.Text = "Generazione annullata o tempo massimo raggiunto. Appunti e riepilogo precedente sono conservati."; }
+        catch { NotesHint.Text = "Riepilogo non disponibile o non validato. Appunti, trascrizione e riepilogo precedente sono conservati; controlla il modello locale e riprova."; }
+        finally { _summaryCancellation = null; _notesBusy = false; NotesButton.Content = "Genera riepilogo"; SummaryBox.IsReadOnly = false; }
     }
     private void SaveDocument(object sender, RoutedEventArgs e)
     {
@@ -279,7 +300,7 @@ public partial class MeetingWindow : Window
         if (dialog.ShowDialog(this) != true) return;
         try
         {
-            _document.Title = TitleBox.Text; _document.Notes = NotesBox.Text; _document.NotedEntries = _notedEntries;
+            _document.Title = TitleBox.Text; _document.Notes = NotesBox.Text; _document.Summary = SummaryBox.Text; _document.SummaryEdited = _summaryEdited; _document.NotedEntries = _notedEntries;
             if (Active) _document.DurationSeconds = _time.Elapsed.TotalSeconds;
             string data = dialog.FilterIndex == 2 ? _document.Markdown() : _document.Json();
             string path = dialog.FileName;
@@ -303,7 +324,7 @@ public partial class MeetingWindow : Window
             if (new FileInfo(dialog.FileName).Length > 32 * 1024 * 1024) throw new InvalidDataException();
             var doc = JsonSerializer.Deserialize<MeetingDocument>(File.ReadAllText(dialog.FileName)) ?? throw new InvalidDataException();
             if (!doc.IsValid()) throw new InvalidDataException();
-            if (_document.Entries.Count > 0 || NotesBox.Text.Length > 0) DocumentOpenRequested?.Invoke(doc, dialog.FileName);
+            if (_document.Entries.Count > 0 || NotesBox.Text.Length > 0 || SummaryBox.Text.Length > 0) DocumentOpenRequested?.Invoke(doc, dialog.FileName);
             else RestoreDocument(doc, dialog.FileName);
         }
         catch { StateLabel.Text = "File di appunti non valido: il documento corrente è conservato."; }
@@ -313,7 +334,12 @@ public partial class MeetingWindow : Window
         if (Active) throw new InvalidOperationException("A running meeting cannot be replaced.");
         if (!doc.IsValid()) throw new InvalidDataException("Invalid meeting document.");
         _document = doc; _path = path; _captions.Clear(); foreach (var entry in doc.Entries) _captions.Add(ToCaption(entry));
-        NotesBox.Text = doc.Notes; TitleBox.Text = doc.Title; TimerLabel.Text = TimeSpan.FromSeconds(doc.DurationSeconds).ToString(@"hh\:mm\:ss");
+        _restoring = true;
+        try { NotesBox.Text = doc.Notes; SummaryBox.Text = doc.Summary; }
+        finally { _restoring = false; }
+        _summaryEdited = doc.SummaryEdited;
+        TitleBox.Text = doc.Title; TimerLabel.Text = TimeSpan.FromSeconds(doc.DurationSeconds).ToString(@"hh\:mm\:ss");
+        if (doc.SummaryNeedsUpdate) NotesHint.Text = "Il riepilogo salvato va aggiornato con gli ultimi appunti o blocchi.";
         _notedEntries = doc.NotedEntries ?? (string.IsNullOrWhiteSpace(doc.Notes) ? 0 : doc.Entries.Count); CountLabel.Text = $"{_captions.Count} blocchi"; StateLabel.Text = "Appunti aperti · microfono spento";
         ScheduleSearch(true);
     }

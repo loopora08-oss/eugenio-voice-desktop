@@ -3,6 +3,13 @@ using System.Threading.Channels;
 using VoceLocale;
 using VoceLocale.Core;
 
+if (args.Length == 3 && args[0] == "--notes-benchmark")
+    return await NotesQualityBenchmark.RunAsync(args[1], args[2]);
+if (args.Length == 3 && args[0] == "--notes-benchmark-heldout")
+    return await NotesQualityBenchmark.RunAsync(args[1], args[2], heldOutOnly:true);
+if (args.Length == 2 && args[0] == "--real-meeting-capture")
+    return await RealMeetingCaptureChecks.RunAsync(args[1]);
+
 if (args.Length == 3 && args[0] == "--text-model-benchmark")
     return await TextModelBenchmark.RunAsync(args[1], args[2]);
 
@@ -23,6 +30,8 @@ if (args.Length == 4 && args[0] == "--meeting-benchmark")
 
 int passed = 0, failed = 0;
 MeetingSearchChecks.Run(Check);
+MeetingSummaryChecks.Run(Check);
+await MeetingSummaryChecks.SafetyAsync(Check);
 await ProvenanceChecks.RunAsync(Check);
 void Check(string name, bool ok) { Console.WriteLine($"{(ok ? "PASS" : "FAIL")} {name}"); if (ok) passed++; else failed++; }
 await MeetingChecks.RunAsync(Check);
