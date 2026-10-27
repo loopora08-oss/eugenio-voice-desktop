@@ -1,64 +1,29 @@
-<Window x:Class="VoceLocale.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="VoceLocale" Width="760" Height="840" MinWidth="650" MinHeight="600" ShowInTaskbar="True" WindowStartupLocation="CenterScreen" Background="#101820" Foreground="#E8EEF6" FontFamily="Segoe UI">
-  <ScrollViewer VerticalScrollBarVisibility="Auto">
-    <StackPanel Margin="32">
-      <DockPanel Margin="0,0,0,24">
-        <Border DockPanel.Dock="Right" Background="#1A3930" CornerRadius="12" Padding="12,6" VerticalAlignment="Top"><TextBlock Text="●  SOLO SUL TUO PC" Foreground="#9CDEBE" FontSize="11" FontWeight="SemiBold" /></Border>
-        <Button Content="Apri Notetaker" DockPanel.Dock="Right" Click="OpenNotetaker" VerticalAlignment="Center"/>
-        <StackPanel><TextBlock Text="Eugenio" FontSize="30" FontWeight="SemiBold" /><TextBlock Text="Dì Eugenio. Il testo prende forma." Foreground="#A8B7C5" FontSize="15" Margin="0,6,0,0" /><TextBlock Text="Trascrizione e correzione tramite IA locale: verifica il risultato." Foreground="{StaticResource SecondaryInk}" FontSize="12" /></StackPanel>
-      </DockPanel>
-      <Border Background="#1C2A34" CornerRadius="16" Padding="22" Margin="0,0,0,20">
+<Window x:Class="VoceLocale.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="Eugenio" Width="1120" Height="840" MinWidth="860" MinHeight="650" WindowStartupLocation="CenterScreen" Background="{StaticResource Shell}" Foreground="{StaticResource Ink}" FontFamily="Segoe UI" FontSize="14">
+<Grid Margin="12"><Grid.ColumnDefinitions><ColumnDefinition Width="200"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+<DockPanel Margin="4,12,16,12">
+<StackPanel DockPanel.Dock="Top"><TextBlock Text="≋ Eugenio" FontSize="26" FontWeight="SemiBold" Margin="12,8,0,4"/><TextBlock Text="Il tuo spazio vocale" Foreground="{StaticResource SecondaryInk}" Margin="12,0,0,32"/></StackPanel>
+<StackPanel DockPanel.Dock="Bottom"><TextBlock Text="IA locale · sul tuo PC" Foreground="{StaticResource SecondaryInk}" FontSize="12" Margin="12,16"/><Button Content="Nascondi" Click="HideWindow" HorizontalAlignment="Stretch"/><Button Content="Esci da Eugenio" Click="ExitApp" HorizontalAlignment="Stretch" Margin="0,8,0,0"/></StackPanel>
+<StackPanel>
+<RadioButton x:Name="DictationNav" GroupName="Navigation" Style="{StaticResource NavItem}" Content="Dettatura" Tag="dictation" Click="Navigate" IsChecked="True"/>
+<Button Content="Notetaker  ↗" Click="OpenNotetaker" Style="{StaticResource NavButton}"/>
+<RadioButton GroupName="Navigation" Style="{StaticResource NavItem}" Content="Dizionario" Tag="dictionary" Click="Navigate"/>
+<RadioButton GroupName="Navigation" Style="{StaticResource NavItem}" Content="Stile" Tag="style" Click="Navigate"/>
+<RadioButton GroupName="Navigation" Style="{StaticResource NavItem}" Content="Impostazioni" Tag="settings" Click="Navigate"/>
+</StackPanel></DockPanel>
+<Border Grid.Column="1" Background="{StaticResource Ground}" BorderBrush="{StaticResource Edge}" BorderThickness="1" CornerRadius="20"><Grid Margin="32,28"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+<TextBlock x:Name="PageTitle" Text="Dettatura" FontSize="28" FontWeight="SemiBold" Margin="0,0,0,24"/>
+<Border xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Background="{StaticResource Surface}" CornerRadius="16" Padding="22" Grid.Row="1" Margin="0,0,0,24">
         <StackPanel>
           <TextBlock x:Name="StatusLabel" Text="Preparazione…" FontSize="20" FontWeight="SemiBold" />
-          <TextBlock x:Name="StatusDetail" Text="Verifica dei modelli locali." Foreground="#BAC7D3" Margin="0,8,0,14" />
-          <TextBlock x:Name="ShortcutHint" Text="Eugenio · avvia     clic sul badge o scorciatoia · termina     Esc · annulla" Foreground="#9CDEBE" FontWeight="SemiBold" />
-          <TextBlock x:Name="TimingLabel" Foreground="#A8B7C5" FontSize="12" Margin="0,10,0,0" />
+          <TextBlock x:Name="StatusDetail" Text="Verifica dei modelli locali." Foreground="{StaticResource SecondaryInk}" Margin="0,8,0,14" />
+          <TextBlock x:Name="ShortcutHint" Text="Eugenio · avvia     clic sul badge o scorciatoia · termina     Esc · annulla" Foreground="{StaticResource Accent}" FontWeight="SemiBold" />
+          <TextBlock x:Name="TimingLabel" Foreground="{StaticResource SecondaryInk}" FontSize="12" Margin="0,10,0,0" />
         </StackPanel>
       </Border>
-      <StackPanel x:Name="ModelPanel">
-        <TextBlock Text="01 / MODELLI LOCALI" Foreground="#A8B7C5" FontSize="11" FontWeight="Bold" Margin="0,0,0,8" />
-        <TextBlock x:Name="ModelsLabel" Text="Whisper locale + MiniCPM tramite Ollama" />
-        <TextBlock Text="Whisper small trascrive le frasi; Whisper base riconosce Eugenio con un motore separato. La modalità veloce adatta il contesto audio alla frase. Tutto viene elaborato sul PC." FontSize="12" Foreground="#A8B7C5" Margin="0,5,0,12" />
-        <WrapPanel Margin="0,0,0,10">
-          <Button x:Name="DownloadButton" Content="Scarica modelli Whisper" Click="DownloadModels" />
-          <Button x:Name="ImportButton" Content="Importa Whisper da disco" Click="ImportModels" />
-          <Button x:Name="LoadButton" Content="Verifica modelli" Click="LoadModels" />
-          <Button x:Name="CancelDownloadButton" Content="Annulla" Visibility="Collapsed" Click="CancelDownload" />
-        </WrapPanel>
-        <ProgressBar x:Name="ModelProgress" Height="4" Minimum="0" Maximum="100" Visibility="Collapsed" />
-        <TextBlock x:Name="ProgressLabel" FontSize="12" Foreground="#A8B7C5" Margin="0,6,0,0" />
-      </StackPanel>
-      <Separator Margin="0,22" Background="#30404D" />
-      <StackPanel x:Name="SettingsPanel">
-        <TextBlock Text="02 / LA TUA DETTATURA" Foreground="#A8B7C5" FontSize="11" FontWeight="Bold" Margin="0,0,0,10" />
-        <Grid>
-          <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="20" /><ColumnDefinition /></Grid.ColumnDefinitions>
-          <StackPanel><TextBlock Text="Microfono" /><ComboBox x:Name="MicrophoneBox" /><Button Content="Aggiorna microfoni" Click="RefreshMicrophones" HorizontalAlignment="Left" /></StackPanel>
-          <StackPanel Grid.Column="2"><TextBlock Text="Lingua" /><ComboBox x:Name="LanguageBox"><ComboBoxItem Content="Automatico · italiano / inglese" Tag="auto" /><ComboBoxItem Content="Italiano" Tag="it" /><ComboBoxItem Content="English" Tag="en" /></ComboBox><TextBlock Text="Mantiene la lingua parlata, salvo modalità traduzione." FontSize="12" Foreground="#A8B7C5" /></StackPanel>
-        </Grid>
-        <TextBlock x:Name="InputLevelLabel" Text="Microfono: in attesa del segnale" FontSize="12" Foreground="#A8B7C5" Margin="0,4,0,0" />
-        <TextBlock x:Name="WakeStatusLabel" Text="Dì Eugenio per attivare la dettatura, oppure usa il pulsante microfono sul badge." FontSize="12" Foreground="#A8B7C5" Margin="0,4,0,0" />
-        <TextBlock Text="Trascrizione" Margin="0,14,0,5" />
-        <ComboBox x:Name="SpeedBox"><ComboBoxItem Content="Equilibrata · modello adattato alla frase" /><ComboBoxItem Content="Massima velocità · Whisper base" /><ComboBoxItem Content="Precisione · Whisper small, contesto completo" /></ComboBox>
-        <CheckBox x:Name="TranslateBox" Content="Traduzione letterale in inglese · dettatura" Foreground="#E8EEF6" Margin="0,0,0,12"/>
-        <TextBlock Text="La traduzione usa TranslateGemma 4B installato in Ollama; conserva anche i ripensamenti pronunciati." FontSize="12" Foreground="#A8B7C5"/>
-        <TextBlock Text="Stile di scrittura" Margin="0,14,0,5" />
-        <ComboBox x:Name="ModeBox">
-          <ComboBoxItem Content="Generale · fedele alla voce" Tag="general" />
-          <ComboBoxItem Content="Messaggio · tono naturale" Tag="message" />
-          <ComboBoxItem Content="Email · senza aggiunte" Tag="email" />
-          <ComboBoxItem Content="Codice · preserva i termini tecnici" Tag="code" />
-        </ComboBox>
-        <TextBlock Text="Modello di correzione · Ollama locale" Margin="0,12,0,5" />
-        <DockPanel><Button x:Name="RefreshRewriteModelsButton" DockPanel.Dock="Right" Content="Aggiorna elenco" Margin="8,0,0,0" /><ComboBox x:Name="RewriteModelBox" IsEditable="False" ToolTip="Sono mostrati i modelli già installati e disponibili in Ollama." /></DockPanel>
-        <TextBlock Text="Predefinito: minicpm-assistente-it:latest. Ollama deve essere avviato sul PC." FontSize="12" Foreground="#A8B7C5" Margin="0,4,0,0" />
-        <TextBlock Text="Modello per appunti · Ollama locale" Margin="0,12,0,5"/>
-        <ComboBox x:Name="TextModelBox" IsEditable="False"/>
-        <TextBlock Text="Dizionario personale (fino a 40 nomi o termini, uno per riga)" Margin="0,12,0,5" />
-        <TextBox x:Name="VocabularyBox" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="54" MaxHeight="110" VerticalScrollBarVisibility="Auto" ToolTip="Suggerimenti di ortografia locali; non sovrascrivono parole chiaramente diverse." />
-        <TextBlock Text="Scorciatoia di emergenza (alternativa a Eugenio)" Margin="0,16,0,5" />
-        <DockPanel><Button DockPanel.Dock="Right" Content="Salva impostazioni" Click="SaveSettings" Margin="12,0,0,0" /><TextBox x:Name="ShortcutBox" Text="Ctrl+Alt+Space" /></DockPanel>
-      </StackPanel>
-      <Border x:Name="RecoveryPanel" Visibility="Collapsed" Background="#24332F" CornerRadius="12" Padding="18" Margin="0,22,0,0">
+      <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><Grid>
+<StackPanel x:Name="DictationPage"><TextBlock Text="Dai voce ai tuoi pensieri." FontFamily="Georgia" FontSize="30" Margin="0,8,0,16"/><TextBlock Text="Detta nel campo in cui stai scrivendo. Eugenio trascrive e ripulisce il testo sul tuo PC." Foreground="{StaticResource SecondaryInk}" FontSize="16" Margin="0,0,0,24"/>
+<Border Background="{StaticResource Surface}" CornerRadius="12" Padding="24"><StackPanel><TextBlock Text="Una riunione, una lezione, un’idea." FontSize="20" Margin="0,0,0,12"/><TextBlock Text="Apri uno spazio dedicato per scrivere appunti, seguire la trascrizione e generare un riepilogo." Foreground="{StaticResource SecondaryInk}" Margin="0,0,0,20"/><Button Content="Apri Notetaker" Click="OpenNotetaker" HorizontalAlignment="Left" Style="{StaticResource PrimaryButton}"/></StackPanel></Border>
+<TextBlock Text="I dettati non vengono conservati in una cronologia. Il testo trattenuto dopo un errore appare qui per il recupero manuale." Foreground="{StaticResource SecondaryInk}" Margin="0,24,0,16"/><Border xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Name="RecoveryPanel" Visibility="Collapsed" Background="{StaticResource Surface}" CornerRadius="12" Padding="18" Margin="0,22,0,0">
         <StackPanel>
           <TextBlock Text="Testo trattenuto" FontSize="17" FontWeight="SemiBold" />
           <TextBlock x:Name="RecoveryHint" Margin="0,6,0,10" />
@@ -66,8 +31,52 @@
           <WrapPanel Margin="0,12,0,0"><Button x:Name="ArmButton" Content="Abilita inserimento manuale" Click="ArmRecovery" /><Button Content="Copia esplicitamente" Click="CopyRecovery" /><Button Content="Scarta" Click="DiscardRecovery" /></WrapPanel>
         </StackPanel>
       </Border>
-      <TextBlock Text="Per riconoscere Eugenio, il microfono resta in ascolto e brevi segmenti vocali sono elaborati localmente in memoria. Whisper e MiniCPM/Ollama lavorano sul PC. Audio e dettati non vengono salvati dall’app né inviati online. Nessuna cronologia o telemetria." FontSize="12" Foreground="#A8B7C5" Margin="0,22,0,14" />
-      <WrapPanel><Button Content="Nascondi nell’area di notifica" Click="HideWindow" /><Button Content="Esci" Click="ExitApp" Background="#33424E" Foreground="White" /></WrapPanel>
-    </StackPanel>
-  </ScrollViewer>
-</Window>
+      </StackPanel>
+<StackPanel x:Name="PreferencesPage" Visibility="Collapsed"><StackPanel xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Name="ModelPanel">
+        <TextBlock Text="Modelli sul tuo PC" Foreground="{StaticResource SecondaryInk}" FontSize="18" FontWeight="Bold" Margin="0,0,0,8" />
+        <TextBlock x:Name="ModelsLabel" Text="Whisper locale + MiniCPM tramite Ollama" />
+        <TextBlock Text="Whisper small trascrive le frasi; Whisper base riconosce Eugenio con un motore separato. La modalità veloce adatta il contesto audio alla frase. Tutto viene elaborato sul PC." FontSize="12" Foreground="{StaticResource SecondaryInk}" Margin="0,5,0,12" />
+        <WrapPanel Margin="0,0,0,10">
+          <Button x:Name="DownloadButton" Content="Scarica modelli Whisper" Click="DownloadModels" />
+          <Button x:Name="ImportButton" Content="Importa Whisper da disco" Click="ImportModels" />
+          <Button x:Name="LoadButton" Content="Verifica modelli" Click="LoadModels" />
+          <Button x:Name="CancelDownloadButton" Content="Annulla" Visibility="Collapsed" Click="CancelDownload" />
+        </WrapPanel>
+        <ProgressBar x:Name="ModelProgress" Height="4" Minimum="0" Maximum="100" Visibility="Collapsed" />
+        <TextBlock x:Name="ProgressLabel" FontSize="12" Foreground="{StaticResource SecondaryInk}" Margin="0,6,0,0" />
+      </StackPanel>
+      <Separator Margin="0,24"/><StackPanel xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Name="SettingsPanel">
+        <TextBlock Text="Audio e preferenze" Foreground="{StaticResource SecondaryInk}" FontSize="18" FontWeight="Bold" Margin="0,0,0,10" />
+        <Grid>
+          <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="20" /><ColumnDefinition /></Grid.ColumnDefinitions>
+          <StackPanel><TextBlock Text="Microfono" /><ComboBox x:Name="MicrophoneBox" /><Button Content="Aggiorna microfoni" Click="RefreshMicrophones" HorizontalAlignment="Left" /></StackPanel>
+          <StackPanel Grid.Column="2"><TextBlock Text="Lingua" /><ComboBox x:Name="LanguageBox"><ComboBoxItem Content="Automatico · italiano / inglese" Tag="auto" /><ComboBoxItem Content="Italiano" Tag="it" /><ComboBoxItem Content="English" Tag="en" /></ComboBox><TextBlock Text="Mantiene la lingua parlata, salvo modalità traduzione." FontSize="12" Foreground="{StaticResource SecondaryInk}" /></StackPanel>
+        </Grid>
+        <TextBlock x:Name="InputLevelLabel" Text="Microfono: in attesa del segnale" FontSize="12" Foreground="{StaticResource SecondaryInk}" Margin="0,4,0,0" />
+        <TextBlock x:Name="WakeStatusLabel" Text="Dì Eugenio per attivare la dettatura, oppure usa il pulsante microfono sul badge." FontSize="12" Foreground="{StaticResource SecondaryInk}" Margin="0,4,0,0" />
+        <TextBlock Text="Trascrizione" Margin="0,14,0,5" />
+        <ComboBox x:Name="SpeedBox"><ComboBoxItem Content="Equilibrata · modello adattato alla frase" /><ComboBoxItem Content="Massima velocità · Whisper base" /><ComboBoxItem Content="Precisione · Whisper small, contesto completo" /></ComboBox>
+        <CheckBox x:Name="TranslateBox" Content="Traduzione letterale in inglese · dettatura" Foreground="{StaticResource Ink}" Margin="0,0,0,12" />
+        <TextBlock Text="La traduzione usa TranslateGemma 4B installato in Ollama; conserva anche i ripensamenti pronunciati." FontSize="12" Foreground="{StaticResource SecondaryInk}" />
+        <TextBlock Text="Modello di correzione · Ollama locale" Margin="0,12,0,5" />
+        <DockPanel><Button x:Name="RefreshRewriteModelsButton" DockPanel.Dock="Right" Content="Aggiorna elenco" Margin="8,0,0,0" /><ComboBox x:Name="RewriteModelBox" IsEditable="False" ToolTip="Sono mostrati i modelli già installati e disponibili in Ollama." /></DockPanel>
+        <TextBlock Text="Predefinito: minicpm-assistente-it:latest. Ollama deve essere avviato sul PC." FontSize="12" Foreground="{StaticResource SecondaryInk}" Margin="0,4,0,0" />
+        <TextBlock Text="Modello per appunti · Ollama locale" Margin="0,12,0,5" />
+        <ComboBox x:Name="TextModelBox" IsEditable="False" />
+        <TextBlock Text="Scorciatoia di emergenza (alternativa a Eugenio)" Margin="0,16,0,5" />
+        <DockPanel><Button DockPanel.Dock="Right" Content="Salva impostazioni" Click="SaveSettings" Margin="12,0,0,0" /><TextBox x:Name="ShortcutBox" Text="Ctrl+Alt+Space" /></DockPanel>
+      </StackPanel>
+      </StackPanel>
+<StackPanel x:Name="DictionaryPage" Visibility="Collapsed"><TextBlock Text="I termini che usi ogni giorno." FontFamily="Georgia" FontSize="28" Margin="0,8,0,16"/><TextBlock Text="Nomi e parole del tuo lavoro aiutano Eugenio a rispettare la tua grafia. Fino a 40 termini, uno per riga." Foreground="{StaticResource SecondaryInk}" Margin="0,0,0,24"/><TextBlock xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" Text="Dizionario personale (fino a 40 nomi o termini, uno per riga)" Margin="0,12,0,5" />
+        <TextBox xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Name="VocabularyBox" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="190" MaxHeight="400" VerticalScrollBarVisibility="Auto" ToolTip="Suggerimenti di ortografia locali; non sovrascrivono parole chiaramente diverse." />
+        <Button Content="Salva dizionario" Click="SaveSettings" HorizontalAlignment="Left" Margin="0,16,0,0"/></StackPanel>
+<StackPanel x:Name="StylePage" Visibility="Collapsed"><TextBlock Text="Le tue parole, il tuo tono." FontFamily="Georgia" FontSize="28" Margin="0,8,0,16"/><TextBlock Text="Scegli come ripulire la dettatura, conservando il significato e senza rispondere alle domande pronunciate." Foreground="{StaticResource SecondaryInk}" Margin="0,0,0,24"/><TextBlock xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" Text="Stile di scrittura" Margin="0,14,0,5" />
+        <ComboBox xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Name="ModeBox">
+          <ComboBoxItem Content="Generale · fedele alla voce" Tag="general" />
+          <ComboBoxItem Content="Messaggio · tono naturale" Tag="message" />
+          <ComboBoxItem Content="Email · senza aggiunte" Tag="email" />
+          <ComboBoxItem Content="Codice · preserva i termini tecnici" Tag="code" />
+        </ComboBox>
+        <Button Content="Salva stile" Click="SaveSettings" HorizontalAlignment="Left" Margin="0,16,0,0"/></StackPanel>
+</Grid></ScrollViewer><TextBlock Grid.Row="3" Text="Trascrizione e correzione tramite IA locale. Verifica il risultato prima di usarlo. Per assistenza rivolgiti al manutentore del progetto." FontSize="12" Foreground="{StaticResource SecondaryInk}" Margin="0,20,0,0"/>
+</Grid></Border></Grid></Window>

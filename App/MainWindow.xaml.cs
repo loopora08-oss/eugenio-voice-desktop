@@ -98,6 +98,7 @@ public partial class MainWindow : Window
     }
     private void InitializeDesktop()
     {
+        NativeWindowTheme.Apply(this);
         if (_previewOnly) return;
         try
         {
@@ -277,6 +278,7 @@ public partial class MainWindow : Window
     private void RefreshMicrophones(object sender, RoutedEventArgs e) => RefreshMicrophoneList();
     private async void SaveSettings(object sender, RoutedEventArgs e)
     {
+        if (_previewOnly) { Status("Anteprima dell’interfaccia", "Le preferenze personali non vengono modificate dall’anteprima."); return; }
         if (_busy || _recording || _setup != null || _meetingHeld) return;
         if (!Hotkey.TryParse(ShortcutBox.Text, out var key))
         { Status("Scorciatoia non valida", "Usa Ctrl o Alt con una lettera, un numero, Space oppure F1–F11."); return; }

@@ -44,6 +44,7 @@ public partial class MeetingWindow : Window
     public MeetingWindow(Func<Settings> settings, Func<bool> acquire, Action release)
     {
         InitializeComponent(); _settings = settings; _acquireMicrophone = acquire; _releaseMicrophone = release;
+        SourceInitialized += (_, _) => NativeWindowTheme.Apply(this);
         TranscriptList.ItemsSource = _captions;
         NotesBox.TextChanged += (_, _) =>
         {
@@ -286,7 +287,7 @@ public partial class MeetingWindow : Window
             _summaryEdited = false;
             _notedEntries = count;
             _document.SummaryNeedsUpdate = count != _document.Entries.Count || personalNotes != NotesBox.Text;
-            NotesTabs.SelectedIndex = 1;
+            NotesTabs.SelectedIndex = 2;
             NotesHint.Text = _document.SummaryNeedsUpdate ? "Riepilogo pronto sui dati precedenti: aggiorna per includere le ultime modifiche."
                 : "Riepilogo pronto. Verifica decisioni, incarichi, nomi e cifre prima di condividerlo.";
         }

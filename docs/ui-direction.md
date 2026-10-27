@@ -1,5 +1,27 @@
 # Direzione UI — modifica Notetaker 1.5
 
+## Ridisegno del 27 ottobre 2026
+
+Il riferimento esplicito dell'utente sono le schermate Wispr Flow fornite nella chat. Si mantiene la direzione `true-black-flat`, seed 350151119, adattando palette e composizione alla richiesta: antracite neutro, bordi quieti, selezioni grigie, accento menta per stato e focus. Segoe UI per comandi e testo, Georgia soltanto per titoli editoriali. Nessun nuovo font, servizio o asset esterno, nessun costo API introdotto.
+
+Prima: impostazioni in un'unica pagina lunga, pannello meeting denso e trascrizione affiancata agli appunti. Dopo: barra laterale con pagine Dettatura, Dizionario, Stile e Impostazioni; apertura diretta del Notetaker. Il documento usa tre schede a tutta larghezza: Appunti, Trascrizione, Riepilogo IA. Sorgenti e opzioni audio sono espandibili; consenso e Avvia/Pausa/Termina rimangono fuori dal pannello. Le funzioni di condivisione, chat, calendario e identificazione dei partecipanti non vengono rappresentate da pulsanti senza implementazione.
+
+Oggetti reali: titolo, appunti personali, riepilogo, blocchi originali e tradotti, conteggio, durata, stato, sorgenti, modello, lessico e stile. Nessuna cronologia o statistica fittizia. Domanda della pagina principale: come posso dettare o aprire i miei appunti? Domanda del Notetaker: cosa è stato detto e cosa voglio conservarne? Il foglio del documento è l'elemento dominante. I contenuti restano locali.
+
+Tema e focus sono centralizzati in `App/Theme.xaml`. La preferenza scura della barra del titolo riguarda soltanto la finestra e non cambia le impostazioni Windows. L'anteprima `--preview-design` usa una sessione distinta, disattiva microfono e scorciatoie e rifiuta il salvataggio delle preferenze; conserva altre sessioni già aperte.
+
+Verifica svolta sul client WPF reale: avvio della nuova app, navigazione Dettatura/Dizionario, schede del Notetaker, menu qualità, apertura/chiusura opzioni, Ctrl+F dalla scheda Riepilogo con focus visibile sul campo di ricerca; blocco Avvia senza consenso. Osservate finestra principale 1120×840 e Notetaker 960×860 e 880×700. Corrette le etichette delle schede inizialmente tagliate e la barra del titolo inizialmente chiara. La larghezza minima 640 è prevista ma non ancora verificata visivamente. Il pannello opzioni aperto riduce sensibilmente lo spazio del testo a 700px di altezza: richiuderlo per leggere o aumentare la finestra.
+
+Nessuna animazione introdotta: non serve una modalità alternativa per ridurre movimento aggiunto. Le verifiche browser 1440/768/390 e `inspect.mjs` non sono applicabili a WPF e non vengono dichiarate superate. Non è una versione mobile né un audit completo di accessibilità. Il confronto prima/dopo del codice è in Git; non è disponibile una nuova cattura della vecchia UI in questo turno. Le precedenti prove del motore non diventano prove della nuova build; non è cambiata la qualità del riconoscimento o del riepilogo.
+
+Review tecnica del ridisegno: nessun nuovo HTTP/API, autenticazione, database, indice, transazione, cache o coda esterna. Limiti, annullamento e gestione della concorrenza dei servizi esistenti restano nel codice precedente. Cambia l'indice della scheda di destinazione del riepilogo e di Ctrl+F; la navigazione mostra una sola pagina. Nessun segreto o account aggiunto. Il criterio Windows che ha bloccato la precedente assembly di test non è stato modificato o aggirato; non viene riproposta l'esecuzione di quell'assembly.
+
+Secondo errore verificato nella UI: Genera riepilogo su documento vuoto mostra la richiesta di scrivere appunti o acquisire testo, senza generare contenuti. Compilazione con avvisi trattati come errori riuscita; pubblicazione locale self-contained di app e due worker riuscita. Pacchetto `1.5.0-preview.7` in `.artifacts/Eugenio-interfaccia-2026-10-27`, con `Apri-anteprima.cmd`; avviato realmente dal pacchetto. Nessuna nuova prova audio o qualità del modello in questo ridisegno. Le schermate native sono in `.artifacts/ui-redesign`.
+
+Checklist della modifica: triage esistente confermato; disclosure visibile e presente nell'albero accessibile; nessuna nuova persistenza o chiamata esterna; errore senza consenso e riepilogo vuoto verificati; navigazione e ricerca verificate; niente animazioni nuove. Restano aperti audit completo accessibilità/contrasto, larghezza minima 640, nuova regressione automatizzata bloccata e collaudo audio della nuova distribuzione. La preview grafica è consegnabile come anteprima, non come release commerciale certificata o requisito di parità Wispr superato.
+
+---
+
 Skill applicata: design-taste-frontend, flusso app-screens, adattato al prodotto WPF esistente. Non è un redesign completo: conservati marchio Eugenio, Segoe UI, palette e flussi precedenti. I controlli browser della skill non misurano WPF; la verifica visiva è desktop, con limiti registrati nel rapporto della versione.
 
 Domanda principale: sto acquisendo le persone giuste e posso leggere ciò che è stato detto? Pubblico: utente Windows che lavora in appunti per decine di minuti. Oggetti: sessione, sorgente microfono/audio PC, segmenti con tempi, testo originale, traduzione, avvisi e note. Conteggi reali, nessun dato di utilizzo inventato. L'azione principale rimane Avvia/Pausa/Termina.

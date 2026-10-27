@@ -100,6 +100,6 @@ public partial class MeetingWindow
     private void MeetingKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.F && Keyboard.Modifiers == ModifierKeys.Control)
-        { SearchBox.Focus(); SearchBox.SelectAll(); e.Handled = true; }
+        { NotesTabs.SelectedIndex = 1; SearchBox.Focus(); SearchBox.SelectAll(); e.Handled = true; }
     }
 }

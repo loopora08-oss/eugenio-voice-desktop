@@ -1,5 +1,7 @@
 # Eugenio — dettatura e Notetaker
 
+**Nuova interfaccia del 27 ottobre:** tema antracite, barra laterale con Dettatura/Dizionario/Stile/Impostazioni e Notetaker con tre schede a tutta larghezza: Appunti, Trascrizione, Riepilogo IA. Le sorgenti audio sono in un pannello espandibile. [Confronto prima/dopo e verifiche native](docs/ui-direction.md). `VoceLocale.exe --preview-design --meeting` apre l'anteprima isolata con microfono e scorciatoie disattivati, senza salvare preferenze personali. Il ridisegno non modifica i risultati dei modelli.
+
 **Evoluzione open source in corso.** Codice del progetto sotto [licenza MIT](LICENSE), implementazione indipendente da Wispr Flow. La [roadmap verificabile](docs/roadmap-open-source.md) distingue requisiti pronti, mancanti e non provati. Repository pubblico e nuova release non sono ancora dichiarati disponibili. Windows x64; nessuna parità di accuratezza/velocità con Wispr certificata.
 
 **Prima modifica:** Equilibrata e Velocità riconoscono una volta ciascun segmento e inviano il testo completo alla correzione finale; Precisione conserva il riconoscimento dell'audio concatenato. Il conteggio riconoscimenti/segmenti e il tempo del blocco sono visibili dopo l'inserimento, senza registrare contenuti. Il tempo del blocco non include tutta l'acquisizione e non equivale alla latenza fine voce → testo.
