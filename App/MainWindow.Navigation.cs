@@ -9,6 +9,11 @@ public partial class MainWindow
     {
         if (sender is not RadioButton item) return;
         string section = item.Tag?.ToString() ?? "dictation";
+        SelectSection(section);
+    }
+    private void SelectSection(string section)
+    {
+        MainSidebar.SelectedPage = section;
         DictationPage.Visibility = section == "dictation" ? Visibility.Visible : Visibility.Collapsed;
         DictionaryPage.Visibility = section == "dictionary" ? Visibility.Visible : Visibility.Collapsed;
         StylePage.Visibility = section == "style" ? Visibility.Visible : Visibility.Collapsed;

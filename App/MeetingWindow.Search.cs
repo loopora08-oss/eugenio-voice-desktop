@@ -100,6 +100,12 @@ public partial class MeetingWindow
     private void MeetingKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.F && Keyboard.Modifiers == ModifierKeys.Control)
-        { NotesTabs.SelectedIndex = 1; SearchBox.Focus(); SearchBox.SelectAll(); e.Handled = true; }
+        { OpenTranscriptSearch(); e.Handled = true; }
+    }
+    private void ShowTranscriptSearch(object sender, RoutedEventArgs e) => OpenTranscriptSearch();
+    private void OpenTranscriptSearch()
+    {
+        NotesTabs.SelectedIndex = 1; SearchPanel.Visibility = Visibility.Visible;
+        SearchBox.Focus(); SearchBox.SelectAll();
     }
 }

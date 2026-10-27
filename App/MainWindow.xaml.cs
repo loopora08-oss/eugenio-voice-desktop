@@ -49,6 +49,12 @@ public partial class MainWindow : Window
         _previewOnly = previewOnly;
         _settings = Storage.LoadSettings(previewOnly);
         InitializeComponent();
+        NativeWindowTheme.FitToWorkArea(this);
+        MainSidebar.NavigationRequested += section =>
+        {
+            if (section == "meeting") ShowMeeting();
+            else SelectSection(section);
+        };
         _badge = new BadgeWindow(ShowSettings, ToggleAsync);
         _badge.RestorePosition(_settings.BadgeLeft, _settings.BadgeTop);
         _badge.PositionChanged += (left, top) =>
@@ -171,6 +177,7 @@ public partial class MainWindow : Window
                 StartWakeListener();
             });
             window.NewDocumentRequested += () => ShowMeeting(true);
+            window.NavigateMainRequested += section => { SelectSection(section); ShowSettings(); };
             window.DocumentOpenRequested += (doc, path) => ShowMeeting(true).RestoreDocument(doc, path);
             window.InputLevelChanged += rms => _badge.SetInputLevel(rms);
             window.CaptureStateChanged += (text, recording, state) => { _badge.SetSessionActive(recording); _badge.SetStatus(text, state); };

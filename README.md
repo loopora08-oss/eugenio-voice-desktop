@@ -1,5 +1,7 @@
 # Eugenio — dettatura e Notetaker
 
+**Tema pixel in revisione, preview.9:** lampada d'oro e scie blu, navigazione condivisa e layout riallineato al concept approvato. I sorgenti compilano; Windows ha bloccato la nuova DLL per mancanza di firma attendibile. La resa nell'app non è ancora verificata. [Prima/dopo, prove e sblocco necessario](docs/pixel-prima-dopo.md).
+
 **Nuova interfaccia del 27 ottobre:** tema antracite, barra laterale con Dettatura/Dizionario/Stile/Impostazioni e Notetaker con tre schede a tutta larghezza: Appunti, Trascrizione, Riepilogo IA. Le sorgenti audio sono in un pannello espandibile. [Confronto prima/dopo e verifiche native](docs/ui-direction.md). `VoceLocale.exe --preview-design --meeting` apre l'anteprima isolata con microfono e scorciatoie disattivati, senza salvare preferenze personali. Il ridisegno non modifica i risultati dei modelli.
 
 **Evoluzione open source in corso.** Codice del progetto sotto [licenza MIT](LICENSE), implementazione indipendente da Wispr Flow. La [roadmap verificabile](docs/roadmap-open-source.md) distingue requisiti pronti, mancanti e non provati. Repository pubblico e nuova release non sono ancora dichiarati disponibili. Windows x64; nessuna parità di accuratezza/velocità con Wispr certificata.

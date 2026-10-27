@@ -40,10 +40,14 @@ public partial class MeetingWindow : Window
     public event Action<string, bool, string>? CaptureStateChanged;
     public event Action<double>? InputLevelChanged;
     public event Action? NewDocumentRequested;
+    public event Action<string>? NavigateMainRequested;
     public event Action<MeetingDocument, string>? DocumentOpenRequested;
     public MeetingWindow(Func<Settings> settings, Func<bool> acquire, Action release)
     {
         InitializeComponent(); _settings = settings; _acquireMicrophone = acquire; _releaseMicrophone = release;
+        NativeWindowTheme.FitToWorkArea(this);
+        DocumentDate.Text = _document.CreatedAt.ToLocalTime().ToString("d MMMM yyyy", System.Globalization.CultureInfo.GetCultureInfo("it-IT"));
+        MeetingSidebar.NavigationRequested += section => { if (section != "meeting") NavigateMainRequested?.Invoke(section); };
         SourceInitialized += (_, _) => NativeWindowTheme.Apply(this);
         TranscriptList.ItemsSource = _captions;
         NotesBox.TextChanged += (_, _) =>
@@ -335,6 +339,7 @@ public partial class MeetingWindow : Window
         if (Active) throw new InvalidOperationException("A running meeting cannot be replaced.");
         if (!doc.IsValid()) throw new InvalidDataException("Invalid meeting document.");
         _document = doc; _path = path; _captions.Clear(); foreach (var entry in doc.Entries) _captions.Add(ToCaption(entry));
+        DocumentDate.Text = doc.CreatedAt.ToLocalTime().ToString("d MMMM yyyy", System.Globalization.CultureInfo.GetCultureInfo("it-IT"));
         _restoring = true;
         try { NotesBox.Text = doc.Notes; SummaryBox.Text = doc.Summary; }
         finally { _restoring = false; }

@@ -3,7 +3,6 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Interop;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 
 namespace VoceLocale;
@@ -13,7 +12,7 @@ public sealed class BadgeWindow : Window
 {
     private readonly TextBlock _state;
     private readonly Image _mascot;
-    private readonly BitmapSource[] _mascotFrames;
+    private readonly ImageSource[] _mascotFrames;
     private readonly TranslateTransform _mascotFloat = new();
     private readonly Border _dot;
     private readonly Border _dotHalo;
@@ -41,15 +40,7 @@ public sealed class BadgeWindow : Window
         Background = Brushes.Transparent; Left = SystemParameters.WorkArea.Right - Width - 24;
         Top = SystemParameters.WorkArea.Bottom - Height - 24;
 
-        var spriteSheet = BitmapFrame.Create(
-            new Uri("pack://application:,,,/assets/EugenioMascot.png"),
-            BitmapCreateOptions.PreservePixelFormat,
-            BitmapCacheOption.OnLoad);
-        var frameWidth = spriteSheet.PixelWidth / 4;
-        _mascotFrames = Enumerable.Range(0, 4)
-            .Select(frame => (BitmapSource)new CroppedBitmap(spriteSheet,
-                new Int32Rect(frame * frameWidth, 0, frameWidth, spriteSheet.PixelHeight)))
-            .ToArray();
+        _mascotFrames = Enumerable.Range(0, 4).Select(PixelLamp.CreateImage).ToArray();
         _mascot = new Image
         {
             Source = _mascotFrames[0], Width = 80, Height = 80,
@@ -102,7 +93,7 @@ public sealed class BadgeWindow : Window
         Grid.SetColumn(gear, 4); grid.Children.Add(gear);
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         Grid.SetColumn(microphone, 4); Grid.SetColumn(gear, 5); grid.Children.Add(microphone);
-        var surface = new Border { Background = Brush("#172229"), BorderBrush = Brush("#34444D"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(16), Padding = new Thickness(12, 4, 10, 4), Child = grid };
+        var surface = new Border { Background = Brush("#050505"), BorderBrush = Brush("#168AFF"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(2), Padding = new Thickness(12, 4, 10, 4), Child = grid };
         surface.PreviewMouseLeftButtonDown += (_, e) =>
         {
             if (e.OriginalSource is DependencyObject source && FindButton(source)) return;
@@ -209,6 +200,13 @@ public sealed class BadgeWindow : Window
     {
         _animationStep++;
         double level = Environment.TickCount64 - _inputAt < 500 ? _inputLevel : 0;
+        if (!SystemParameters.ClientAreaAnimation)
+        {
+            _mascotFloat.Y = 0; SetMascotFrame(0);
+            foreach (var bar in _bars) ((ScaleTransform)bar.RenderTransform).ScaleY = .35 + level * 2;
+            _dotHalo.Opacity = 0;
+            return;
+        }
         bool active = _mode == "processing" || level > .05;
         if (_mode is "recording" or "processing")
         {
